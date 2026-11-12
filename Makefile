@@ -1,7 +1,7 @@
 SHELL := /bin/zsh
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report vectors
+.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report vectors map
 
 install:
 	cd backend && uv sync
@@ -23,9 +23,9 @@ lint:
 migrate:
 	cd backend && uv run alembic upgrade head
 
-# Full catalog build: IMDb -> TMDB enrichment -> coverage report -> movie vectors.
-# Restart the API afterwards so it loads the new vectors.
-ingest: migrate ingest-imdb ingest-tmdb report vectors
+# Full catalog build: IMDb -> TMDB enrichment -> coverage report -> movie vectors -> 2D map.
+# Restart the API afterwards so it loads the new vectors and map.
+ingest: migrate ingest-imdb ingest-tmdb report vectors map
 
 ingest-imdb:
 	cd backend && uv run python -m ingest.imdb
@@ -39,3 +39,7 @@ report:
 
 vectors:
 	cd backend && uv run python -m ingest.build_vectors
+
+# 2D layout of the vectors for the Blender's movie theater (~1-2 min). Run after vectors.
+map:
+	cd backend && uv run python -m ingest.build_map

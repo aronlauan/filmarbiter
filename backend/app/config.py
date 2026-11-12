@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # Catalog filter applied at IMDb ingest time.
     min_votes: int = 5000
 
+    # Most-voted movies that compete for seats in the Blender's movie theater. Crowded
+    # areas keep only their best-known films, so roughly a quarter get seats.
+    map_candidates: int = 4000
+
     # Feature-block weights for the movie vectors (see ingest/build_vectors.py).
     # Overall similarity = sum(weight * block similarity), so weights should sum to 1.
     # Content blocks get 90%; era + language are a capped 10% bonus, never a filter.

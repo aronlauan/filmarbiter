@@ -110,6 +110,60 @@ export function blendMovies(imdbIds: string[]): Promise<BlendResponse> {
   return request('/api/blend', { method: 'POST', body: JSON.stringify({ imdb_ids: imdbIds }) })
 }
 
+// --- Movie map --------------------------------------------------------------
+
+/** A movie in the Blender's theater; x and y are in [-1, 1]. */
+export interface MapNode extends MovieSummary {
+  x: number
+  y: number
+  /** Index into MapResponse.sections. */
+  section: number
+  /** The film's own IMDb genres (a section only names an area of the house). */
+  genres: string[]
+}
+
+/** An area of the house, named after its most distinctive genre. */
+export interface MapSection {
+  name: string
+  size: number
+}
+
+export interface MapResponse {
+  /** Board grid spacing; every node's x and y is a multiple of it. */
+  grid: number
+  nodes: MapNode[]
+  sections: MapSection[]
+  /** Links between similar movies, as index pairs into nodes. */
+  edges: [number, number][]
+}
+
+/** A seat made for a movie outside the house's seating (a pick or a result). */
+export interface MapSeat {
+  imdb_id: string
+  x: number
+  y: number
+  section: number
+  /** Its most similar seats, as indexes into MapResponse.nodes. */
+  links: number[]
+  genres: string[]
+}
+
+/** A pick or result shown with a made-for-it seat. */
+export interface ExtraSeat extends MapNode {
+  links: number[]
+}
+
+export function getMovieMap(): Promise<MapResponse> {
+  return request('/api/map')
+}
+
+/** Seats for movies without one, next to where they belong. Order matters: earlier
+ *  ids keep their seat as more are added (send picks before results). Movies not on
+ *  the map are left out. */
+export function getMapSeats(imdbIds: string[]): Promise<MapSeat[]> {
+  return request(`/api/map/seats?ids=${imdbIds.map(encodeURIComponent).join(',')}`)
+}
+
 // --- Letterboxd -------------------------------------------------------------
 
 export interface LetterboxdProfile {

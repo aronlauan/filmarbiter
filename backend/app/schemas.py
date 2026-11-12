@@ -96,6 +96,42 @@ class BlendResponse(BaseModel):
     results: list[BlendResult]
 
 
+# --- Movie map ------------------------------------------------------------
+
+
+class MapNodeOut(MovieSummary):
+    x: float
+    y: float
+    section: int  # index into MapResponse.sections
+    genres: list[str]  # the film's own IMDb genres (sections only name areas)
+
+
+class MapSection(BaseModel):
+    name: str
+    size: int
+
+
+class MapResponse(BaseModel):
+    # Board grid spacing; every node's x and y is a multiple of it.
+    grid: float
+    nodes: list[MapNodeOut]
+    # Areas of the house, each named after its most distinctive genre.
+    sections: list[MapSection]
+    # Links between similar movies, as index pairs into nodes.
+    edges: list[tuple[int, int]]
+
+
+class MapSeat(BaseModel):
+    """A seat made for a movie outside the house's seating (a pick or a result)."""
+
+    imdb_id: str
+    x: float
+    y: float
+    section: int
+    links: list[int]  # indexes into MapResponse.nodes
+    genres: list[str]
+
+
 # --- Letterboxd -------------------------------------------------------------
 
 

@@ -29,6 +29,7 @@ make ingest            # build the catalog: see below
 | TMDB enrichment: overviews, keywords, posters | `make ingest-tmdb` | ~12 min; resumable, only fetches movies not yet enriched |
 | Coverage report | `make report` | instant |
 | Movie vectors for recommendations | `make vectors` | ~25 s; downloads the 90 MB MiniLM model once |
+| 2D map of the vectors for the Blender's movie theater | `make map` | ~25 s |
 
 Everything generated lives in `data/` (gitignored).
 
@@ -40,9 +41,9 @@ make test   # backend tests
 make lint   # ruff + oxlint
 ```
 
-- **Restart `make api` after `make vectors`**: the vector index is loaded once at startup. Without vectors, blend and Letterboxd picks return 503 with a clear message; search still works.
+- **Restart `make api` after `make vectors` or `make map`**: both are loaded once at startup. Without vectors, blend and Letterboxd picks return 503 with a clear message; search still works. Without the map, the Blender hides its movie theater and works as a plain panel.
 - **Schema changes:** edit `backend/app/models.py`, then `cd backend && uv run alembic revision --autogenerate -m "..."` and `make migrate`. Autogenerate ignores the hand-made FTS5 tables.
-- **Refreshing data:** IMDb publishes new datasets daily. `cd backend && uv run python -m ingest.imdb --refresh` re-downloads them; re-ingesting keeps existing TMDB data. Then run `make ingest-tmdb` (new movies only) and `make vectors`, and restart the API.
+- **Refreshing data:** IMDb publishes new datasets daily. `cd backend && uv run python -m ingest.imdb --refresh` re-downloads them; re-ingesting keeps existing TMDB data. Then run `make ingest-tmdb` (new movies only) `make vectors` and `make map`, and restart the API.
 
 ### API
 | Endpoint | Purpose |
@@ -50,6 +51,8 @@ make lint   # ruff + oxlint
 | `GET /api/movies/search?q=` | Title autocomplete |
 | `GET /api/movies/{imdb_id}` | Movie detail |
 | `POST /api/blend` `{imdb_ids: [1..5]}` | Top 3 matches with reasons |
+| `GET /api/map` | Movie theater: well-known films as seats on a grid (from the `MAP_CANDIDATES` most-voted, default 4000; crowded areas keep only their best-known), split by aisles into ~10 sections named after their most distinctive genre (two genres for mixed sections, e.g. "COMEDY & DRAMA"), with each film's own genres and links to similar films |
+| `GET /api/map/seats?ids=` | Seats made for up to 20 films without one (picks or results), next to where they belong, with their section and links; send picks before results so earlier seats stay put |
 | `GET /api/letterboxd/verify/{username}` | `ok` / `not_found` / `private` / `invalid`; 503 if Letterboxd is down |
 | `POST /api/letterboxd/import` `{username, refresh?}` | Start (or reuse) an import of a verified user; 409 if not verified |
 | `GET /api/letterboxd/import/{job_id}` | Import status and phase |
