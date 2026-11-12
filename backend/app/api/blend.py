@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
 from app.models import Movie, MoviePerson
-from app.recommender.engine import UnknownMoviesError, blend
+from app.recommender.engine import UnknownMoviesError, blend, match_percent
 from app.recommender.index import MovieIndex
 from app.recommender.state import get_index
 from app.schemas import (
@@ -51,6 +51,7 @@ def blend_movies(
             BlendResult(
                 movie=MovieDetail.from_movie(movies[m.imdb_id]),
                 score=round(m.score, 4),
+                match=match_percent(m.score),
                 reasons=MatchReasons(**m.reasons.__dict__),
             )
             for m in matches

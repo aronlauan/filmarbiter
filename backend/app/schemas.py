@@ -88,6 +88,7 @@ class MatchReasons(BaseModel):
 class BlendResult(BaseModel):
     movie: MovieDetail
     score: float
+    match: int  # 0-100, how well the movie fits all the picks (engine.match_percent)
     reasons: MatchReasons
 
 
@@ -140,6 +141,21 @@ class LetterboxdProfileOut(BaseModel):
     display_name: str
     avatar_url: str | None
     films_count: int
+
+
+class LetterboxdMemberOut(BaseModel):
+    username: str
+    display_name: str
+    avatar_url: str | None
+    badge: str | None
+
+
+class MemberSearchResponse(BaseModel):
+    query: str
+    # exact: every result's username or display name equals the query (case-insensitive);
+    # partial: nothing matched exactly, these are Letterboxd's closest matches; none: no results
+    match: Literal["exact", "partial", "none"]
+    results: list[LetterboxdMemberOut]
 
 
 class VerifyResponse(BaseModel):

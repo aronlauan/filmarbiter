@@ -23,8 +23,10 @@ from app.schemas import (
     BecauseFilm,
     ImportRequest,
     ImportStatus,
+    LetterboxdMemberOut,
     LetterboxdProfileOut,
     MatchReasons,
+    MemberSearchResponse,
     MovieDetail,
     ProfileRecommendation,
     RecommendationsResponse,
@@ -72,6 +74,33 @@ def _status(job: LetterboxdImport) -> ImportStatus:
         error=job.error,
         created_at=_utc(job.created_at),  # type: ignore[arg-type]
         finished_at=_utc(job.finished_at),
+    )
+
+
+@router.get("/search", response_model=MemberSearchResponse)
+async def search(
+    source: SourceDep,
+    q: Annotated[str, Query(min_length=1, max_length=64)],
+) -> MemberSearchResponse:
+    query = q.strip()
+    if not query.removeprefix("@").strip():
+        return MemberSearchResponse(query=query, match="none", results=[])
+    try:
+        found = await service.search_members(query, source)
+    except LetterboxdError as e:
+        raise UNAVAILABLE from e
+    return MemberSearchResponse(
+        query=query,
+        match=found.match,
+        results=[
+            LetterboxdMemberOut(
+                username=m.username,
+                display_name=m.display_name,
+                avatar_url=m.avatar_url,
+                badge=m.badge,
+            )
+            for m in found.members
+        ],
     )
 
 

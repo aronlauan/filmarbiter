@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from app.recommender.index import NO_COLLECTION, MovieIndex
+from app.recommender.sensitive import is_sensitive
 
 MAX_PICKS = 5
 
@@ -21,6 +22,13 @@ PROFILE_QUALITY_FLOOR = 0.4
 # MMR trade-off between relevance and novelty when choosing the final k.
 MMR_LAMBDA = 0.8
 CANDIDATE_POOL = 50
+# Match percentage shown on Blender results: sqrt((score - floor) / (ceil - floor)),
+# clamped to 0..100. Calibrated on 400 random blends: top results score ~0.33 (p10),
+# ~0.37 (median), ~0.62 (p99); coherent blends land at ~0.45-0.55. So a scattered
+# blend's top pick reads ~65%, a good one ~80-90%, and only rare near-perfect fits hit
+# 100. The square root spreads out the top of the range, where most results sit.
+MATCH_FLOOR = 0.15
+MATCH_CEIL = 0.65
 
 
 class UnknownMoviesError(KeyError):
@@ -41,6 +49,14 @@ class Match:
     imdb_id: str
     score: float
     reasons: Reasons
+
+
+def match_percent(score: float) -> int:
+    """A blend score as a 0-100 match percentage (see MATCH_FLOOR / MATCH_CEIL).
+    Monotonic in the score, so results ranked by score never show a lower rank
+    with a higher percentage."""
+    t = (score - MATCH_FLOOR) / (MATCH_CEIL - MATCH_FLOOR)
+    return round(100 * min(1.0, max(0.0, t)) ** 0.5)
 
 
 def _quality_factor(index: MovieIndex, floor: float | None = None) -> np.ndarray:
@@ -72,7 +88,8 @@ def explain(
 ) -> Reasons:
     """What a result shares with the movies it was recommended from.
 
-    Keywords are ranked by how many sources share them, then by rarity. With many
+    Keywords about race, ethnicity or gender are never given as a reason (see
+    sensitive.py). Keywords are ranked by how many sources share them, then by rarity. With many
     sources (a Letterboxd profile) pass by_rarity=True to rank by count x IDF
     instead, so ubiquitous tags ("based on novel or book") don't win on count alone.
     """
@@ -83,7 +100,7 @@ def explain(
     result_genres = set(index.features[row].genres)
     result_people = index.people_roles[row]
     for src in source_rows:
-        kw_counts.update(result_kw & index.keyword_sets[src])
+        kw_counts.update(k for k in result_kw & index.keyword_sets[src] if not is_sensitive(k))
         genre_counts.update(result_genres & set(index.features[src].genres))
         people_counts.update(result_people.keys() & index.people_roles[src].keys())
 

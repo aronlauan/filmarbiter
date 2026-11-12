@@ -37,6 +37,16 @@ class Profile:
 
 
 @dataclass(frozen=True)
+class MemberMatch:
+    """One account from Letterboxd's member search (no film count; that needs the profile)."""
+
+    username: str
+    display_name: str
+    avatar_url: str | None
+    badge: str | None  # "Pro" / "Patron" / None
+
+
+@dataclass(frozen=True)
 class LoggedFilm:
     slug: str
     name: str
@@ -47,6 +57,7 @@ class LoggedFilm:
 
 class LetterboxdSource(Protocol):
     def profile(self, username: str) -> Profile: ...
+    def search_members(self, query: str, limit: int) -> list[MemberMatch]: ...
     def film_pages(self, username: str) -> Iterator[list[LoggedFilm]]: ...
     def film_imdb_id(self, slug: str) -> str | None: ...
 
@@ -93,6 +104,27 @@ class LetterboxdClient:
                 avatar_url=avatar.get("url") if avatar.get("exists", True) else None,
                 films_count=int(stats.get("films", 0)),
             )
+
+        return _translate(load)
+
+    def search_members(self, query: str, limit: int) -> list[MemberMatch]:
+        """Letterboxd's own member search: fuzzy over usernames and display names."""
+        from letterboxdpy.search import Search, SearchFilter
+
+        def load() -> list[MemberMatch]:
+            raw = Search(query, SearchFilter.MEMBERS).get_results(limit)
+            return [
+                MemberMatch(
+                    username=r["username"].lower(),
+                    display_name=r.get("display_name") or r["username"],
+                    avatar_url=(r.get("avatar") or {}).get("url")
+                    if (r.get("avatar") or {}).get("exists")
+                    else None,
+                    badge=r.get("badge"),
+                )
+                for r in raw.get("results", [])
+                if r.get("username")
+            ]
 
         return _translate(load)
 

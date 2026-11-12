@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ExtraSeat, MapNode, MapSection, MovieSummary } from '../api'
+import { useMediaQuery } from '../hooks'
 import Poster from './Poster'
 
 interface Props {
@@ -101,17 +102,6 @@ const MAX_ZOOM_LABELS = 120
 const DRAG_THRESHOLD = 4 // px a press can move and still count as a click
 const FONT = 'ui-monospace, SFMono-Regular, Menlo, monospace'
 const SIGN_FONT = 'ui-sans-serif, system-ui, sans-serif'
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
-  useEffect(() => {
-    const mq = window.matchMedia(query)
-    const onChange = () => setMatches(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [query])
-  return matches
-}
 
 const easeOut = (p: number) => 1 - (1 - p) ** 3
 const isDark = (pal: Palette) => pal === DARK

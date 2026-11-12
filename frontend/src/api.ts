@@ -38,6 +38,8 @@ export interface MatchReasons {
 export interface BlendResult {
   movie: MovieDetail
   score: number
+  /** 0-100: how well the movie fits all the picks (the engine's score, rescaled). */
+  match: number
   reasons: MatchReasons
 }
 
@@ -173,6 +175,21 @@ export interface LetterboxdProfile {
   films_count: number
 }
 
+/** A search hit: enough to recognise the account, not yet verified (no film count). */
+export interface LetterboxdMember {
+  username: string
+  display_name: string
+  avatar_url: string | null
+  badge: string | null
+}
+
+export interface MemberSearchResponse {
+  query: string
+  /** exact: username or display name equals the query; partial: closest matches only. */
+  match: 'exact' | 'partial' | 'none'
+  results: LetterboxdMember[]
+}
+
 export type VerifyStatus = 'ok' | 'not_found' | 'private' | 'invalid'
 
 export interface VerifyResponse {
@@ -219,11 +236,16 @@ export interface RecommendationsResponse {
   results: ProfileRecommendation[]
 }
 
-/** Accepts "name", "@name" or a pasted profile URL ("letterboxd.com/name/films/"). */
+/** Accepts "name", "@name", a display name or a pasted profile URL
+ * ("letterboxd.com/name/films/" -> "name"). */
 export function parseLetterboxdUsername(input: string): string {
   const s = input.trim()
   const fromUrl = s.match(/letterboxd\.com\/([^/?#\s]+)/i)
   return (fromUrl ? fromUrl[1] : s.replace(/^@/, '')).trim()
+}
+
+export function searchLetterboxd(query: string): Promise<MemberSearchResponse> {
+  return request(`/api/letterboxd/search?q=${encodeURIComponent(query)}`)
 }
 
 export function verifyLetterboxd(username: string): Promise<VerifyResponse> {

@@ -7,11 +7,13 @@ export function stars(rating: number | null): string {
   return '★'.repeat(full) + (rating - full >= 0.5 ? '½' : '')
 }
 
-export type MessageStatus = VerifyStatus | 'unavailable' | 'offline' | 'error'
+export type MessageStatus = VerifyStatus | 'no_results' | 'unavailable' | 'offline' | 'error'
 
 /** User-facing message for a verification outcome that isn't "ok". */
 export function verifyMessage(status: MessageStatus, username: string): string {
   switch (status) {
+    case 'no_results':
+      return `No Letterboxd accounts match "${username}". Check the spelling, or try your username instead of your name.`
     case 'not_found':
       return `We couldn't find a Letterboxd user named "${username}". Check the spelling.`
     case 'private':

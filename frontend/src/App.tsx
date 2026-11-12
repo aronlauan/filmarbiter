@@ -6,12 +6,14 @@ import LetterboxdSuggestions from './pages/LetterboxdSuggestions'
 import NotFound from './pages/NotFound'
 
 export default function App() {
-  // The Blender's movie theater needs the full width; other pages stay a readable column.
-  const width = useLocation().pathname === '/blend' ? 'max-w-[96rem]' : 'max-w-5xl'
+  // The Blender's theater fills the screen under the header; other pages stay a readable column.
+  const fullBleed = useLocation().pathname === '/blend'
+  const width = fullBleed ? 'max-w-[96rem]' : 'max-w-5xl'
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
-        <nav className={`mx-auto flex ${width} items-center gap-6`}>
+      {/* Fixed height: the Blender sizes its stage to the screen minus this header. */}
+      <header className="flex h-14 shrink-0 items-center border-b border-stone-200 px-4 dark:border-stone-800">
+        <nav className={`mx-auto flex w-full ${width} items-center gap-6`}>
           <Link to="/" className="text-lg font-semibold tracking-tight">
             filmarbiter
           </Link>
@@ -24,7 +26,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main className={`mx-auto w-full ${width} flex-1 px-4 py-8`}>
+      <main className={fullBleed ? 'w-full flex-1' : `mx-auto w-full ${width} flex-1 px-4 py-8`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/blend" element={<Blender />} />

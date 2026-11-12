@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState, type Ref } from 'react'
 import { isServerUnreachable, searchMovies, SERVER_UNREACHABLE, type MovieSummary } from '../api'
 import Poster from './Poster'
 
@@ -8,6 +8,9 @@ interface Props {
   pickedIds: Set<string>
   disabled?: boolean
   placeholder?: string
+  ref?: Ref<HTMLInputElement>
+  /** Where the suggestion list opens, and how tall it gets. Defaults to below the input. */
+  listClassName?: string
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -20,7 +23,7 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 /** Title autocomplete (ARIA combobox). */
-export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder }: Props) {
+export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder, ref, listClassName }: Props) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -62,6 +65,7 @@ export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder
   return (
     <div className="relative">
       <input
+        ref={ref}
         type="search"
         role="combobox"
         aria-label="Search for a movie"
@@ -87,7 +91,7 @@ export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-96 w-full overflow-auto rounded-lg border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900"
+          className={`absolute z-20 ${listClassName ?? 'top-full mt-1 max-h-96'} w-full overflow-auto rounded-lg border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900`}
         >
           {results.map((m, i) => {
             const picked = pickedIds.has(m.imdb_id)

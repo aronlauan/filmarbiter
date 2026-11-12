@@ -212,3 +212,26 @@ def test_explain_by_rarity_prefers_specific_shared_tags() -> None:
 
     assert explain(index, row, sources).keywords[0] == "drama-ish"  # most shared first
     assert explain(index, row, sources, by_rarity=True).keywords[0] == "safecracking"
+
+
+def test_match_percent_scale() -> None:
+    from app.recommender.engine import MATCH_CEIL, MATCH_FLOOR, match_percent
+
+    assert match_percent(MATCH_FLOOR) == 0
+    assert match_percent(-1.0) == 0
+    assert match_percent(MATCH_CEIL) == 100
+    assert match_percent(2.0) == 100
+    # Typical scores from the calibration: scattered blend, good blend.
+    assert 60 <= match_percent(0.37) <= 70
+    assert 80 <= match_percent(0.49) <= 90
+    scores = [0.2, 0.3, 0.4, 0.5, 0.6]
+    assert [match_percent(s) for s in scores] == sorted(match_percent(s) for s in scores)
+
+
+def test_explain_never_cites_race_ethnicity_or_gender() -> None:
+    tags = ["heist", "interracial relationship", "woman director", "east asian lead"]
+    movies = [M("src", HEIST, keywords=tags), M("result", HEIST, keywords=tags)]
+    movies += _filler()
+    index = make_index(movies)
+    reasons = explain(index, index.row["result"], [index.row["src"]])
+    assert reasons.keywords == ["heist"]
