@@ -142,6 +142,7 @@ def test_full_flow(lb: TestClient) -> None:
     assert status["status"] == "done"
     assert (status["films_total"], status["films_fetched"]) == (5, 5)
     assert (status["films_matched"], status["films_rated"]) == (3, 4)
+    assert status["created_at"].endswith("Z") or status["created_at"].endswith("+00:00")
 
     rec = lb.get("/api/letterboxd/alice/recommendations", params={"limit": 3})
     assert rec.status_code == 200

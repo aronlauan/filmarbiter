@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
@@ -53,6 +54,11 @@ UNAVAILABLE = HTTPException(
 )
 
 
+def _utc(dt: datetime | None) -> datetime | None:
+    """DB timestamps are naive UTC; mark them so clients don't read them as local time."""
+    return dt.replace(tzinfo=UTC) if dt is not None and dt.tzinfo is None else dt
+
+
 def _status(job: LetterboxdImport) -> ImportStatus:
     return ImportStatus(
         job_id=job.id,
@@ -64,8 +70,8 @@ def _status(job: LetterboxdImport) -> ImportStatus:
         films_matched=job.films_matched,
         films_rated=job.films_rated,
         error=job.error,
-        created_at=job.created_at,
-        finished_at=job.finished_at,
+        created_at=_utc(job.created_at),  # type: ignore[arg-type]
+        finished_at=_utc(job.finished_at),
     )
 
 
@@ -169,7 +175,7 @@ def recommendations(
 
     return RecommendationsResponse(
         username=job.username,
-        imported_at=job.finished_at,
+        imported_at=_utc(job.finished_at),
         films_logged=len(films),
         films_matched=len(by_imdb),
         results=[

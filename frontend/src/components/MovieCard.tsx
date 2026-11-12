@@ -1,9 +1,12 @@
-import type { MatchReasons, MovieDetail } from '../api'
+import type { BecauseFilm, MatchReasons, MovieDetail } from '../api'
+import { stars } from '../letterboxd'
 import Poster from './Poster'
 
 interface Props {
   movie: MovieDetail
   reasons?: MatchReasons
+  /** Letterboxd: the user's films this pick is based on. */
+  because?: BecauseFilm[]
   rank?: number
 }
 
@@ -19,7 +22,7 @@ function reasonsText(r: MatchReasons): string | null {
   return parts.length ? parts.join(' · ') : null
 }
 
-export default function MovieCard({ movie: m, reasons, rank }: Props) {
+export default function MovieCard({ movie: m, reasons, because, rank }: Props) {
   const why = reasons ? reasonsText(reasons) : null
   const meta = [
     m.year,
@@ -41,6 +44,36 @@ export default function MovieCard({ movie: m, reasons, rank }: Props) {
         <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">{meta.join(' · ')}</p>
         {m.genres.length > 0 && (
           <p className="text-sm text-stone-600 dark:text-stone-400">{m.genres.join(', ')}</p>
+        )}
+
+        {because && because.length > 0 && (
+          <p className="mt-2 text-sm text-stone-700 dark:text-stone-300">
+            <span className="font-medium">Because you rated </span>
+            {because.map((b, i) => (
+              <span key={b.imdb_id}>
+                {i > 0 && ', '}
+                {b.title}
+                {b.rating !== null && (
+                  <>
+                    {' '}
+                    <span aria-hidden="true" className="text-emerald-700 dark:text-emerald-400">
+                      {stars(b.rating)}
+                    </span>
+                    <span className="sr-only">{b.rating} out of 5</span>
+                  </>
+                )}
+                {b.liked && (
+                  <>
+                    {' '}
+                    <span aria-hidden="true" className="text-orange-600 dark:text-orange-400">
+                      ♥
+                    </span>
+                    <span className="sr-only">(liked)</span>
+                  </>
+                )}
+              </span>
+            ))}
+          </p>
         )}
 
         {why && (
