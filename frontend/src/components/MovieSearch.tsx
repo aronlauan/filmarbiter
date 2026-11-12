@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useId, useState } from 'react'
-import { searchMovies, type MovieSummary } from '../api'
+import { isServerUnreachable, searchMovies, SERVER_UNREACHABLE, type MovieSummary } from '../api'
 import Poster from './Poster'
 
 interface Props {
@@ -27,7 +27,7 @@ export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder
   const listId = useId()
   const term = useDebounced(text.trim(), 250)
 
-  const { data = [], isFetching, isError } = useQuery({
+  const { data = [], isFetching, isError, error } = useQuery({
     queryKey: ['search', term],
     queryFn: ({ signal }) => searchMovies(term, signal),
     enabled: term.length >= 2,
@@ -119,7 +119,13 @@ export default function MovieSearch({ onSelect, pickedIds, disabled, placeholder
           })}
           {results.length === 0 && (
             <li className="px-3 py-2 text-sm text-stone-500">
-              {isError ? 'Search failed. Try again.' : isFetching ? 'Searching…' : 'No movies found.'}
+              {isError
+                ? isServerUnreachable(error)
+                  ? SERVER_UNREACHABLE
+                  : 'Search failed. Try again.'
+                : isFetching
+                  ? 'Searching…'
+                  : 'No movies found.'}
             </li>
           )}
         </ul>

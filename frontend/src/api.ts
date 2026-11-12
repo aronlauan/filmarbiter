@@ -67,6 +67,13 @@ export class ApiError extends Error {
   }
 }
 
+export const SERVER_UNREACHABLE = "Can't reach filmarbiter right now. Check your connection and try again."
+
+/** True when the request never got an answer from our API (network down, server stopped). */
+export function isServerUnreachable(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 0
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let resp: Response
   try {
@@ -74,10 +81,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     })
-  } catch {
-    throw new ApiError(0, "Can't reach the filmarbiter server.")
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err // cancelled, not an outage
+    throw new ApiError(0, SERVER_UNREACHABLE)
   }
   if (!resp.ok) {
+    const isJson = resp.headers.get('content-type')?.includes('application/json')
+    // Our API always answers with JSON; a non-JSON 5xx comes from a proxy in front of
+    // it (e.g. Vite's dev proxy returns 502 when the backend isn't running).
+    if (!isJson && resp.status >= 500) throw new ApiError(0, SERVER_UNREACHABLE)
     let detail: unknown = resp.statusText
     try {
       detail = (await resp.json()).detail ?? detail

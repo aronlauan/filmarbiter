@@ -6,13 +6,11 @@ import {
   startLetterboxdImport,
   verifyLetterboxd,
   type VerifyResponse,
-  type VerifyStatus,
 } from '../api'
-import { errorStatus, verifyMessage } from '../letterboxd'
+import { errorStatus, verifyMessage, type MessageStatus } from '../letterboxd'
 
 const REDIRECT_DELAY_MS = 1200
-type MessageStatus = VerifyStatus | 'unavailable' | 'error'
-const KNOWN_ERRORS: MessageStatus[] = ['not_found', 'private', 'invalid', 'unavailable', 'error']
+const KNOWN_ERRORS: MessageStatus[] = ['not_found', 'private', 'invalid', 'unavailable', 'offline', 'error']
 
 export default function LetterboxdConnect() {
   const navigate = useNavigate()
@@ -87,7 +85,7 @@ export default function LetterboxdConnect() {
             autoCapitalize="none"
             spellCheck={false}
             aria-describedby="lb-status"
-            aria-invalid={problem !== null && problem !== 'unavailable'}
+            aria-invalid={problem === 'not_found' || problem === 'private' || problem === 'invalid'}
             className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-4 py-3 text-base shadow-sm outline-none placeholder:text-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-300 dark:border-stone-700 dark:bg-stone-900 dark:focus:ring-stone-700"
           />
           <button

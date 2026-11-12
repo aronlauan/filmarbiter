@@ -3,6 +3,7 @@ import Blender from './pages/Blender'
 import Home from './pages/Home'
 import LetterboxdConnect from './pages/LetterboxdConnect'
 import LetterboxdSuggestions from './pages/LetterboxdSuggestions'
+import NotFound from './pages/NotFound'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/blend" element={<Blender />} />
           <Route path="/letterboxd" element={<LetterboxdConnect />} />
           <Route path="/letterboxd/:username" element={<LetterboxdSuggestions />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
 

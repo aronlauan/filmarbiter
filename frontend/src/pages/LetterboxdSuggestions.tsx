@@ -5,6 +5,8 @@ import {
   ApiError,
   getLetterboxdImport,
   getLetterboxdRecommendations,
+  isServerUnreachable,
+  SERVER_UNREACHABLE,
   startLetterboxdImport,
   verifyLetterboxd,
   type ImportStatus,
@@ -182,7 +184,14 @@ export default function LetterboxdSuggestions() {
         )}
 
         {profile && !started.isError && status !== 'done' && status !== 'failed' && (
-          <ImportProgress job={job.data} />
+          <>
+            <ImportProgress job={job.data} />
+            {job.isRefetchError && (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                Lost touch with filmarbiter. Still trying to reconnect…
+              </p>
+            )}
+          </>
         )}
 
         {status === 'failed' && (
@@ -204,9 +213,11 @@ export default function LetterboxdSuggestions() {
 
         {recs.isError && (
           <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {recs.error instanceof ApiError && recs.error.status === 503
-              ? "Recommendations aren't available right now. Try again in a bit."
-              : 'Something went wrong loading your picks. Try again.'}
+            {isServerUnreachable(recs.error)
+              ? SERVER_UNREACHABLE
+              : recs.error instanceof ApiError && recs.error.status === 503
+                ? "Recommendations aren't available right now. Try again in a bit."
+                : 'Something went wrong loading your picks. Try again.'}
           </p>
         )}
 
