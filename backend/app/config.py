@@ -17,10 +17,14 @@ class Settings(BaseSettings):
     min_votes: int = 5000
 
     # Feature-block weights for the movie vectors (see ingest/build_vectors.py).
-    weight_overview: float = 0.45
-    weight_keywords: float = 0.30
-    weight_genres: float = 0.15
-    weight_people: float = 0.10
+    # Overall similarity = sum(weight * block similarity), so weights should sum to 1.
+    # Content blocks get 90%; era + language are a capped 10% bonus, never a filter.
+    weight_overview: float = 0.405
+    weight_keywords: float = 0.27
+    weight_genres: float = 0.135
+    weight_people: float = 0.09
+    weight_era: float = 0.05
+    weight_language: float = 0.05
 
 
 settings = Settings()

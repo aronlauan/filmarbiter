@@ -11,6 +11,8 @@ dependencies = [
     "polars>=2.1.0",
     "pydantic-settings>=2.16.2",
     "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "sentence-transformers>=6.3.0",
     "sqlalchemy>=2.1.8",
     "uvicorn[standard]>=0.54.0",
 ]

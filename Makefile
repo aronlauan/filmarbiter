@@ -1,7 +1,7 @@
 SHELL := /bin/zsh
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report
+.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report vectors
 
 install:
 	cd backend && uv sync
@@ -23,8 +23,9 @@ lint:
 migrate:
 	cd backend && uv run alembic upgrade head
 
-# Full catalog build. The vector build step is added in milestone 4.
-ingest: migrate ingest-imdb ingest-tmdb report
+# Full catalog build: IMDb -> TMDB enrichment -> coverage report -> movie vectors.
+# Restart the API afterwards so it loads the new vectors.
+ingest: migrate ingest-imdb ingest-tmdb report vectors
 
 ingest-imdb:
 	cd backend && uv run python -m ingest.imdb
@@ -35,3 +36,6 @@ ingest-tmdb:
 
 report:
 	cd backend && uv run python -m ingest.report
+
+vectors:
+	cd backend && uv run python -m ingest.build_vectors

@@ -54,3 +54,18 @@ def client(catalog: Engine) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = _session
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def fake_embed(texts: list[str]):
+    """Deterministic stand-in for the sentence model: hashed bag of words, unit length.
+    Overviews sharing words get similar vectors, which is all the tests need."""
+    import zlib
+
+    import numpy as np
+
+    out = np.zeros((len(texts), 64), dtype=np.float32)
+    for i, t in enumerate(texts):
+        for word in t.lower().split():
+            out[i, zlib.crc32(word.encode()) % 64] += 1.0
+    norms = np.linalg.norm(out, axis=1, keepdims=True)
+    return np.divide(out, norms, out=np.zeros_like(out), where=norms > 0)

@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models import Movie
+from app.recommender.engine import MAX_PICKS
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p"
 
@@ -39,6 +40,7 @@ class MovieDetail(MovieSummary):
     writers: list[PersonCredit]
     cast: list[PersonCredit]
     imdb_url: str
+    letterboxd_url: str
 
     @classmethod
     def from_movie(cls, m: Movie) -> "MovieDetail":
@@ -65,4 +67,27 @@ class MovieDetail(MovieSummary):
             writers=credits("writer"),
             cast=credits("cast"),
             imdb_url=f"https://www.imdb.com/title/{m.imdb_id}/",
+            # Letterboxd redirects /imdb/{id}/ to the film page.
+            letterboxd_url=f"https://letterboxd.com/imdb/{m.imdb_id}/",
         )
+
+
+class BlendRequest(BaseModel):
+    imdb_ids: list[str] = Field(min_length=1, max_length=MAX_PICKS)
+
+
+class MatchReasons(BaseModel):
+    keywords: list[str]
+    genres: list[str]
+    people: list[str]
+
+
+class BlendResult(BaseModel):
+    movie: MovieDetail
+    score: float
+    reasons: MatchReasons
+
+
+class BlendResponse(BaseModel):
+    picks: list[MovieSummary]
+    results: list[BlendResult]
