@@ -1,0 +1,20 @@
+nconst	primaryName	birthYear	deathYear	primaryProfession	knownForTitles
+nm0000001	Michael Mann	1943	\N	director	tt0000001
+nm0000002	Al Pacino	1940	\N	actor	tt0000001
+nm0000003	Robert De Niro	1943	\N	actor	tt0000001
+nm0000004	Val Kilmer	1959	\N	actor	tt0000001
+nm0000005	Jon Voight	1938	\N	actor	tt0000001
+nm0000006	Amy Brenneman	1964	\N	actress	tt0000001
+nm0000007	Tom Sizemore	1961	\N	actor	tt0000001
+nm0000008	Some Narrator	\N	\N	self	tt0000001
+nm0000009	Kevin Gage	1959	\N	actor	tt0000001
+nm0000010	Paul Feig	1962	\N	director	tt0000002
+nm0000011	Katie Dippold	\N	\N	writer	tt0000002
+nm0000012	Uncredited Writer	\N	\N	writer	tt0000002
+nm0000013	Sandra Bullock	1964	\N	actress	tt0000002
+nm0000020	Francis Ford Coppola	1939	\N	director	tt0000006
+nm0000021	Mario Puzo	1920	1999	writer	tt0000006
+nm0000022	Marlon Brando	1924	2004	actor	tt0000006
+nm0000030	Jean-Pierre Jeunet	1953	\N	director	tt0000010
+nm0000031	Audrey Tautou	1976	\N	actress	tt0000010
+nm0000050	Unused Person	\N	\N	actor	\N

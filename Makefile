@@ -1,7 +1,7 @@
 SHELL := /bin/zsh
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: install api web test lint ingest
+.PHONY: install api web test lint migrate ingest ingest-imdb
 
 install:
 	cd backend && uv sync
@@ -20,5 +20,11 @@ lint:
 	cd backend && uv run ruff check . && uv run ruff format --check .
 	cd frontend && npm run lint
 
-ingest:
-	cd backend && uv run python -m ingest.imdb && uv run python -m ingest.tmdb && uv run python -m ingest.build_vectors
+migrate:
+	cd backend && uv run alembic upgrade head
+
+# Full catalog build. TMDB enrichment and vector build steps are added in later milestones.
+ingest: migrate ingest-imdb
+
+ingest-imdb:
+	cd backend && uv run python -m ingest.imdb

@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import movies
 from app.config import settings
 
 app = FastAPI(title="filmarbiter")
+app.include_router(movies.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,0 +1,11 @@
+tconst	titleType	primaryTitle	originalTitle	isAdult	startYear	endYear	runtimeMinutes	genres
+tt0000001	movie	Heat	Heat	0	1995	\N	170	Action,Crime,Drama
+tt0000002	movie	The Heat	The Heat	0	2013	\N	117	Action,Comedy,Crime
+tt0000003	short	Short Heat	Short Heat	0	2001	\N	9	Short
+tt0000004	movie	Adult Film	Adult Film	1	2001	\N	90	Adult
+tt0000005	movie	Obscure Film	Obscure Film	0	2001	\N	90	Drama
+tt0000006	movie	The Godfather	The Godfather	0	1972	\N	175	Crime,Drama
+tt0000007	movie	Godfather	Godfather	0	2022	\N	\N	\N
+tt0000008	movie	Unrated Film	Unrated Film	0	2001	\N	90	Drama
+tt0000009	movie	He Said "Hi"	Il a dit "Salut"	0	2010	\N	95	Comedy
+tt0000010	movie	Amélie	Le Fabuleux Destin d'Amélie Poulain	0	2001	\N	122	Comedy,Romance
