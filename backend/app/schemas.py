@@ -34,6 +34,7 @@ class MovieDetail(MovieSummary):
     imdb_rating: float | None
     imdb_votes: int
     overview: str | None
+    keywords: list[str]
     directors: list[PersonCredit]
     writers: list[PersonCredit]
     cast: list[PersonCredit]
@@ -59,6 +60,7 @@ class MovieDetail(MovieSummary):
             imdb_rating=m.imdb_rating,
             imdb_votes=m.imdb_votes,
             overview=m.overview,
+            keywords=[k.name for k in m.keywords],
             directors=credits("director"),
             writers=credits("writer"),
             cast=credits("cast"),

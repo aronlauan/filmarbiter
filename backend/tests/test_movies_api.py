@@ -52,6 +52,7 @@ def test_detail_endpoint(client: TestClient) -> None:
     assert [p["name"] for p in body["writers"]] == ["Mario Puzo", "Francis Ford Coppola"]
     assert [p["name"] for p in body["cast"]] == ["Marlon Brando", "Al Pacino"]
     assert body["imdb_url"] == "https://www.imdb.com/title/tt0000006/"
+    assert body["keywords"] == [] and body["poster_url"] is None  # not enriched in fixtures
 
 
 def test_detail_404(client: TestClient) -> None:

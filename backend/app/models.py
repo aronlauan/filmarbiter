@@ -30,6 +30,9 @@ class Movie(Base):
     people: Mapped[list["MoviePerson"]] = relationship(
         back_populates="movie", order_by="MoviePerson.ordering"
     )
+    keywords: Mapped[list["MovieKeyword"]] = relationship(
+        back_populates="movie", cascade="all, delete-orphan", order_by="MovieKeyword.name"
+    )
 
     @property
     def genre_list(self) -> list[str]:
@@ -57,3 +60,17 @@ class MoviePerson(Base):
 
     movie: Mapped[Movie] = relationship(back_populates="people")
     person: Mapped[Person] = relationship(lazy="joined")
+
+
+class MovieKeyword(Base):
+    """TMDB keywords (e.g. "heist", "neo-noir"); owned by ingest/tmdb.py."""
+
+    __tablename__ = "movie_keywords"
+
+    imdb_id: Mapped[str] = mapped_column(
+        ForeignKey("movies.imdb_id", ondelete="CASCADE"), primary_key=True
+    )
+    keyword_id: Mapped[int] = mapped_column(Integer, primary_key=True)  # TMDB keyword id
+    name: Mapped[str] = mapped_column(String(128), index=True)
+
+    movie: Mapped[Movie] = relationship(back_populates="keywords")

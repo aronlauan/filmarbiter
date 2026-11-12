@@ -19,6 +19,12 @@ if config.config_file_name is not None and config.attributes.get("configure_logg
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    """Keep autogenerate away from the FTS5 search index (movie_fts and its shadow
+    tables). It's created by hand in a migration and isn't in the SQLAlchemy models."""
+    return not (type_ == "table" and name is not None and name.startswith("movie_fts"))
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
@@ -26,6 +32,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -40,7 +47,10 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         # render_as_batch lets ALTER TABLE-style migrations work on SQLite.
         context.configure(
-            connection=connection, target_metadata=target_metadata, render_as_batch=True
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+            include_object=include_object,
         )
         with context.begin_transaction():
             context.run_migrations()
