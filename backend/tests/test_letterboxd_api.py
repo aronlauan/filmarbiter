@@ -11,6 +11,7 @@ from app.letterboxd import service
 from app.letterboxd.client import (
     LetterboxdError,
     LoggedFilm,
+    MemberMatch,
     PrivateProfileError,
     Profile,
     UserNotFoundError,
@@ -31,11 +32,20 @@ ALICE_FILMS = [
 ]
 
 
+MEMBERS = [
+    MemberMatch("alicefilms", "Alice", None, None),
+    MemberMatch("alice", "Alice Liddell", "https://img/alice.jpg", "Pro"),
+    MemberMatch("malice", "Malice Aforethought", None, "Patron"),
+    MemberMatch("alice", "Alice Liddell", "https://img/alice.jpg", "Pro"),  # duplicate row
+]
+
+
 class FakeLetterboxd:
     def __init__(self) -> None:
         self.profile_calls = 0
         self.page_size = 2
         self.fail_pages = False
+        self.search_queries: list[str] = []
 
     def profile(self, username: str) -> Profile:
         self.profile_calls += 1
@@ -46,6 +56,15 @@ class FakeLetterboxd:
         if username == "flaky":
             raise LetterboxdError("cloudflare")
         return Profile(username.lower(), username.title(), None, len(ALICE_FILMS))
+
+    def search_members(self, query: str, limit: int) -> list[MemberMatch]:
+        self.search_queries.append(query)
+        if query == "flaky":
+            raise LetterboxdError("cloudflare")
+        # Crude stand-in for Letterboxd's fuzzy search: substring on either field.
+        return [m for m in MEMBERS if query in m.username or query in m.display_name.casefold()][
+            :limit
+        ]
 
     def film_pages(self, username: str) -> Iterator[list[LoggedFilm]]:
         if self.fail_pages:
@@ -78,6 +97,57 @@ def lb(
     yield client
     for dep in (get_letterboxd_source, get_verify_cache, get_engine, get_index):
         app.dependency_overrides.pop(dep, None)
+
+
+# --- search -----------------------------------------------------------------
+
+
+def _usernames(resp: dict) -> list[str]:
+    return [r["username"] for r in resp["results"]]
+
+
+def test_search_exact_matches_only_username_first(lb: TestClient, fake: FakeLetterboxd) -> None:
+    resp = lb.get("/api/letterboxd/search", params={"q": "  @ALICE "})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["match"] == "exact"
+    # "alice" (username) before "alicefilms" (display name "Alice"); "malice" dropped.
+    assert _usernames(body) == ["alice", "alicefilms"]
+    assert body["results"][0] == {
+        "username": "alice",
+        "display_name": "Alice Liddell",
+        "avatar_url": "https://img/alice.jpg",
+        "badge": "Pro",
+    }
+    assert fake.search_queries == ["alice"]
+
+
+def test_search_display_name_with_spaces_is_exact(lb: TestClient) -> None:
+    body = lb.get("/api/letterboxd/search", params={"q": "alice  liddell"}).json()
+    assert body["match"] == "exact"
+    assert _usernames(body) == ["alice"]
+
+
+def test_search_falls_back_to_partial(lb: TestClient) -> None:
+    body = lb.get("/api/letterboxd/search", params={"q": "lic"}).json()
+    assert body["match"] == "partial"
+    assert _usernames(body) == ["alicefilms", "alice", "malice"]  # deduped, rank kept
+
+
+def test_search_no_results(lb: TestClient) -> None:
+    body = lb.get("/api/letterboxd/search", params={"q": "zzz"}).json()
+    assert body == {"query": "zzz", "match": "none", "results": []}
+
+
+def test_search_blank_never_calls_letterboxd(lb: TestClient, fake: FakeLetterboxd) -> None:
+    body = lb.get("/api/letterboxd/search", params={"q": " @ "}).json()
+    assert body["match"] == "none"
+    assert fake.search_queries == []
+    assert lb.get("/api/letterboxd/search", params={"q": ""}).status_code == 422
+
+
+def test_search_unavailable_is_503(lb: TestClient) -> None:
+    assert lb.get("/api/letterboxd/search", params={"q": "flaky"}).status_code == 503
 
 
 # --- verify -----------------------------------------------------------------

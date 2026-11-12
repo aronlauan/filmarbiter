@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   ApiError,
@@ -11,10 +11,11 @@ import {
   type ExtraSeat,
   type MovieSummary,
 } from '../api'
-import MovieCard, { MovieCardSkeleton } from '../components/MovieCard'
+import BlendButton from '../components/BlendButton'
+import { ResultsAside, ResultsTray } from '../components/BlendResults'
 import MovieTheater from '../components/MovieTheater'
-import MovieSearch from '../components/MovieSearch'
-import PickChips from '../components/PickChips'
+import { PicksDock, PicksRail } from '../components/PicksDrawer'
+import { useMediaQuery } from '../hooks'
 
 const NO_RESULTS: BlendResponse['results'] = [] // stable, so the theater's memos hold
 
@@ -39,6 +40,10 @@ export default function Blender() {
   const [picks, setPicks] = useState<MovieSummary[]>([])
   const [blendedKey, setBlendedKey] = useState<string | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [resultsOpen, setResultsOpen] = useState(true)
+  const desktop = useMediaQuery('(min-width: 1024px)')
+  const focusResult = useCallback((id: string | null) => setFocusId(id), [])
   const hydrated = useRef(false)
 
   const blend = useMutation<BlendResponse, unknown, string[]>({ mutationFn: blendMovies })
@@ -66,7 +71,6 @@ export default function Blender() {
   // --- Movie theater ----------------------------------------------------------
   // Optional: if the map isn't built or fails to load, the panel works on its own.
   const map = useQuery({ queryKey: ['map'], queryFn: getMovieMap, staleTime: Infinity, retry: 1 })
-  const boardVisible = !map.isError
 
   const highlighted = useMemo(
     () => [...picks, ...results.map((r) => r.movie)],
@@ -105,133 +109,106 @@ export default function Blender() {
     const ids = picks.map((p) => p.imdb_id)
     setParams({ ids: ids.join(',') }, { replace: true })
     setBlendedKey(currentKey)
+    setDrawerOpen(false)
+    setResultsOpen(true)
     blend.mutate(ids)
   }
 
-  return (
-    <section
-      className={
-        boardVisible
-          ? 'flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start lg:gap-8'
-          : 'mx-auto max-w-3xl'
-      }
-    >
-      {boardVisible && (
-        <div className="relative h-[38vh] min-h-64 overflow-hidden rounded-lg border border-stone-200 bg-[radial-gradient(ellipse_at_center,_white,_var(--color-stone-100))] lg:sticky lg:top-6 lg:h-[calc(100vh-10rem)] lg:min-h-[32rem] dark:border-stone-800 dark:bg-[radial-gradient(ellipse_at_center,_var(--color-stone-900),_var(--color-stone-950))]">
-          {map.data ? (
-            <MovieTheater
-              grid={map.data.grid}
-              nodes={map.data.nodes}
-              edges={map.data.edges}
-              sections={map.data.sections}
-              extras={extras}
-              pickIds={picks.map((p) => p.imdb_id)}
-              resultIds={results.map((r) => r.movie.imdb_id)}
-              stale={stale}
-              blending={blend.isPending}
-              focusId={focusId}
-              canAdd={!full}
-              onToggle={(m) => (pickedIds.has(m.imdb_id) ? removePick(m.imdb_id) : addPick(m))}
-            />
-          ) : (
-            <p className="absolute inset-0 flex animate-pulse items-center justify-center text-sm text-stone-400">
-              Mapping the catalog…
-            </p>
-          )}
-          <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-white/85 px-2 py-1 text-xs text-stone-500 backdrop-blur dark:bg-stone-950/80">
-            {picks.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400" /> Your picks
-              </span>
-            )}
-            {results.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-sky-600 dark:bg-sky-400" /> Your blend
-              </span>
-            )}
-            {picks.length === 0 && (
-              <span>
-                <span className="hidden sm:inline">Hover a seat to explore, click to add it. Scroll or drag to move around.</span>
-                <span className="sm:hidden">Tap a seat to explore. Pinch to zoom.</span>
-              </span>
-            )}
-          </div>
-        </div>
+  const hasOutcome = blend.isPending || blend.isError || blend.data !== undefined
+  const outcome = {
+    pending: blend.isPending,
+    error: blend.isError && !blend.isPending ? errorMessage(blend.error) : null,
+    results: blend.data && !blend.isPending ? blend.data.results : null,
+    stale,
+    onFocusResult: focusResult,
+  }
+  const picksProps = { picks, onAdd: addPick, onRemove: removePick, open: drawerOpen, onOpenChange: setDrawerOpen }
+  const blendButton = (className: string, showCount: boolean) => (
+    <BlendButton
+      count={picks.length}
+      pending={blend.isPending}
+      stale={picks.length > 0 && stale}
+      showCount={showCount}
+      onClick={runBlend}
+      className={className}
+    />
+  )
+
+  const theater = (
+    <div className="relative min-h-0 min-w-0 flex-1 bg-[radial-gradient(ellipse_at_center,_white,_var(--color-stone-100))] dark:bg-[radial-gradient(ellipse_at_center,_var(--color-stone-900),_var(--color-stone-950))]">
+      {map.data ? (
+        <MovieTheater
+          grid={map.data.grid}
+          nodes={map.data.nodes}
+          edges={map.data.edges}
+          sections={map.data.sections}
+          extras={extras}
+          pickIds={picks.map((p) => p.imdb_id)}
+          resultIds={results.map((r) => r.movie.imdb_id)}
+          stale={stale}
+          blending={blend.isPending}
+          focusId={focusId}
+          canAdd={!full}
+          onToggle={(m) => (pickedIds.has(m.imdb_id) ? removePick(m.imdb_id) : addPick(m))}
+        />
+      ) : (
+        <p
+          className={`absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-stone-500 lg:pl-28 ${
+            map.isError ? '' : 'animate-pulse'
+          }`}
+        >
+          {map.isError
+            ? `The seat map isn't available right now. ${desktop ? 'Search on the left' : 'Tap search below'} to pick movies and blend.`
+            : 'Mapping the catalog…'}
+        </p>
       )}
 
-      <div className="space-y-8">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Movie Blender</h1>
-          <p className="text-stone-600 dark:text-stone-400">
-            Pick up to {MAX_PICKS} movies with the vibe you're after. We'll find the 3 that best match all
-            of them.
-          </p>
-        </header>
-
-        <div className="space-y-4">
-          <MovieSearch
-            pickedIds={pickedIds}
-            disabled={full}
-            placeholder={full ? `That's ${MAX_PICKS}. Remove one to swap it out.` : undefined}
-            onSelect={addPick}
-          />
-          <PickChips picks={picks} onRemove={removePick} />
-          <button
-            type="button"
-            onClick={runBlend}
-            disabled={picks.length === 0 || blend.isPending}
-            className="w-full rounded-lg bg-stone-900 px-6 py-3 font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-300"
-          >
-            {blend.isPending ? 'Blending…' : picks.length > 0 && stale ? 'Blend again' : 'Blend'}
-          </button>
-        </div>
-
-        <div aria-live="polite" className="space-y-4">
-          {blend.isPending && (
-            <>
-              <MovieCardSkeleton />
-              <MovieCardSkeleton />
-              <MovieCardSkeleton />
-            </>
-          )}
-
-          {blend.isError && !blend.isPending && (
-            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-              {errorMessage(blend.error)}
-            </p>
-          )}
-
-          {blend.data && !blend.isPending && (
-            <>
-              <h2 className="text-xl font-semibold">
-                Your blend
-                {stale && (
-                  <span className="ml-2 text-sm font-normal text-stone-500">
-                    (for your previous picks; blend again to update)
-                  </span>
-                )}
-              </h2>
-              {results.length === 0 ? (
-                <p className="text-stone-500">No matches found. Try different picks.</p>
-              ) : (
-                <div className={`space-y-4 transition ${stale ? 'opacity-50' : ''}`}>
-                  {results.map((r, i) => (
-                    <div
-                      key={r.movie.imdb_id}
-                      onMouseEnter={() => setFocusId(r.movie.imdb_id)}
-                      onMouseLeave={() => setFocusId(null)}
-                      onFocus={() => setFocusId(r.movie.imdb_id)}
-                      onBlur={() => setFocusId(null)}
-                    >
-                      <MovieCard movie={r.movie} reasons={r.reasons} rank={i + 1} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-white/80 px-2 py-1 text-xs text-stone-500 backdrop-blur lg:left-[5.5rem] dark:bg-stone-950/75">
+        {picks.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400" /> Your picks
+          </span>
+        )}
+        {results.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-sky-600 dark:bg-sky-400" /> Your blend
+          </span>
+        )}
+        {picks.length === 0 && map.data && (
+          <span>
+            {desktop
+              ? 'Hover the left edge to search. Click a seat to add it; scroll or drag to move around.'
+              : 'Tap a seat to explore. Pinch to zoom.'}
+          </span>
+        )}
       </div>
+
+      {desktop && <PicksRail {...picksProps} forceOpen={map.isError} />}
+      {desktop && blendButton('absolute bottom-6 left-1/2 z-10 -translate-x-1/2 px-8 py-3.5 text-lg', true)}
+      {desktop && hasOutcome && !resultsOpen && (
+        <button
+          type="button"
+          onClick={() => setResultsOpen(true)}
+          className="absolute right-6 bottom-6 z-10 flex items-center gap-2 rounded-full border border-stone-200 bg-white/90 px-4 py-2.5 text-sm font-semibold shadow-lg backdrop-blur hover:bg-white dark:border-stone-700 dark:bg-stone-900/90 dark:hover:bg-stone-900"
+        >
+          <span className="h-2 w-2 rounded-full bg-sky-600 dark:bg-sky-400" /> Show your blend <span aria-hidden="true">←</span>
+        </button>
+      )}
+    </div>
+  )
+
+  return (
+    <section className={`relative flex h-[calc(100dvh-3.5rem)] overflow-hidden ${desktop ? 'flex-row' : 'flex-col'}`}>
+      <h1 className="sr-only">Movie Blender</h1>
+      {theater}
+      {desktop ? (
+        <ResultsAside {...outcome} open={hasOutcome && resultsOpen} onOpenChange={setResultsOpen} />
+      ) : (
+        <>
+          {hasOutcome && <ResultsTray {...outcome} open={resultsOpen} onOpenChange={setResultsOpen} />}
+          <PicksDock {...picksProps} action={blendButton('relative shrink-0 px-5', false)} />
+        </>
+      )}
     </section>
   )
 }

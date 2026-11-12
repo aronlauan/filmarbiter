@@ -28,6 +28,9 @@ def test_blend_endpoint(blend_client: TestClient) -> None:
     top = body["results"][0]
     assert top["movie"]["imdb_id"] == "tt0000002"  # shares "heist" + Action/Crime
     assert "heist" in top["reasons"]["keywords"]
+    matches = [r["match"] for r in body["results"]]
+    assert all(0 <= m <= 100 for m in matches)
+    assert matches == sorted(matches, reverse=True)  # ranked by score, so by match too
     assert top["movie"]["letterboxd_url"] == "https://letterboxd.com/imdb/tt0000002/"
     assert "tt0000001" not in {r["movie"]["imdb_id"] for r in body["results"]}
 

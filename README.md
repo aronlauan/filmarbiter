@@ -94,6 +94,8 @@ Each movie is turned into one vector (~760 numbers), and similarity is cosine si
 2. Exclude the picks and their sequels (TMDB collection).
 3. Choose the 3 results with MMR so they aren't near-duplicates.
 
+Each result shows a **match percentage**: its final score rescaled as `√((score − 0.15) / 0.5)`, clamped to 0–100% (`match_percent` in `engine.py`). Calibrated on random blends: a scattered set of picks tops out around 65%, a coherent one around 80–90%. It follows the score, so it always agrees with the ranking.
+
 Each result's "why" line lists keywords, genres and people it shares with the picks.
 
 **Letterboxd:** taste vector = Σ (rating − the user's average rating) × movie vector, with a small bonus for ♥ likes; below-average ratings count at half strength. Logged films are excluded, then a stronger quality factor (0.4–1.0; a big profile averages into a blander vector) and MMR apply. Each result cites the user's liked films most similar to it ("because you rated…"), avoiding citing the same favourites on every pick; its "why" line draws on their 25 most related liked films.

@@ -1,5 +1,5 @@
-"""Letterboxd flows: verify a username, import their logged films (background job),
-and read back the latest import for recommendations."""
+"""Letterboxd flows: search for an account, verify a username, import their logged
+films (background job), and read back the latest import for recommendations."""
 
 import asyncio
 import logging
@@ -7,7 +7,9 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import Engine, delete, insert, select, update
 from sqlalchemy.orm import Session
@@ -16,6 +18,7 @@ from app.letterboxd.client import (
     LetterboxdError,
     LetterboxdSource,
     LoggedFilm,
+    MemberMatch,
     Profile,
 )
 from app.letterboxd.matcher import CatalogTitles, match_films
@@ -25,6 +28,7 @@ log = logging.getLogger(__name__)
 
 VERIFY_TIMEOUT_S = 15.0  # letterboxdpy retries internally for minutes; cap it
 VERIFY_TTL_S = 3600.0
+SEARCH_LIMIT = 10
 IMPORT_FRESH_FOR = timedelta(hours=24)
 IMPORT_STALE_AFTER = timedelta(minutes=30)  # a "running" job this old died with the server
 
@@ -68,6 +72,37 @@ async def verify(username: str, source: LetterboxdSource, cache: VerifyCache) ->
         raise LetterboxdError("timed out talking to Letterboxd") from e
     cache.put(profile)
     return profile
+
+
+@dataclass(frozen=True)
+class MemberSearch:
+    match: Literal["exact", "partial", "none"]
+    members: list[MemberMatch]
+
+
+def _norm(s: str) -> str:
+    return " ".join(s.split()).casefold()
+
+
+async def search_members(query: str, source: LetterboxdSource) -> MemberSearch:
+    """Accounts the user might mean, for them to confirm. If any username or display
+    name equals the query (ignoring case), only those are returned; otherwise
+    Letterboxd's partial matches. Raises LetterboxdError (including on timeout)."""
+    q = _norm(query.removeprefix("@"))
+    try:
+        found = await asyncio.wait_for(
+            asyncio.to_thread(source.search_members, q, SEARCH_LIMIT), timeout=VERIFY_TIMEOUT_S
+        )
+    except TimeoutError as e:
+        raise LetterboxdError("timed out talking to Letterboxd") from e
+
+    members = list({m.username: m for m in found}.values())  # dedupe, keep rank order
+    exact = [m for m in members if m.username == q or _norm(m.display_name) == q]
+    # An exact username hit is the strongest signal; list it before display-name hits.
+    exact.sort(key=lambda m: m.username != q)
+    if exact:
+        return MemberSearch("exact", exact)
+    return MemberSearch("partial" if members else "none", members)
 
 
 def start_import(
