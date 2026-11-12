@@ -33,3 +33,8 @@ def get_session() -> Iterator[Session]:
     """FastAPI dependency yielding a DB session."""
     with SessionLocal() as session:
         yield session
+
+
+def get_engine() -> Engine:
+    """FastAPI dependency for code that needs the engine itself (background jobs)."""
+    return engine

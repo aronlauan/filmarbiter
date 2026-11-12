@@ -74,3 +74,50 @@ class MovieKeyword(Base):
     name: Mapped[str] = mapped_column(String(128), index=True)
 
     movie: Mapped[Movie] = relationship(back_populates="keywords")
+
+
+# --- Letterboxd -------------------------------------------------------------
+
+
+class LetterboxdSlugMap(Base):
+    """Cache of Letterboxd film slug -> IMDb ID resolved via the Letterboxd film page.
+    imdb_id is None when Letterboxd has no IMDb link for the film."""
+
+    __tablename__ = "letterboxd_slug_map"
+
+    slug: Mapped[str] = mapped_column(String(256), primary_key=True)
+    imdb_id: Mapped[str | None] = mapped_column(String(12))
+    resolved_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LetterboxdImport(Base):
+    """One import of a user's logged films (an async job)."""
+
+    __tablename__ = "letterboxd_imports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # uuid4
+    username: Mapped[str] = mapped_column(String(64), index=True)  # lowercased
+    status: Mapped[str] = mapped_column(String(16))  # pending | running | done | failed
+    phase: Mapped[str | None] = mapped_column(String(16))  # fetching | matching | saving
+    films_total: Mapped[int | None] = mapped_column(Integer)  # from the profile stats
+    films_fetched: Mapped[int] = mapped_column(Integer, default=0)
+    films_matched: Mapped[int] = mapped_column(Integer, default=0)
+    films_rated: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(64))  # not_found | private | ...
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class LetterboxdFilm(Base):
+    """A film a user has logged, from their latest successful import."""
+
+    __tablename__ = "letterboxd_films"
+
+    username: Mapped[str] = mapped_column(String(64), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(256), primary_key=True)
+    name: Mapped[str] = mapped_column(String(512))
+    year: Mapped[int | None] = mapped_column(Integer)
+    rating: Mapped[float | None] = mapped_column(Float)  # 0.5..5 stars; None = unrated
+    liked: Mapped[bool] = mapped_column(default=False)
+    # Catalog match. No FK: the catalog can change under a stored import.
+    imdb_id: Mapped[str | None] = mapped_column(String(12))

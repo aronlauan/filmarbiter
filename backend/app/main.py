@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import blend, movies
+from app.api import blend, letterboxd, movies
 from app.config import settings
 from app.recommender.state import load_index
 
@@ -21,6 +21,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="filmarbiter", lifespan=lifespan)
 app.include_router(movies.router)
 app.include_router(blend.router)
+app.include_router(letterboxd.router)
 
 app.add_middleware(
     CORSMiddleware,

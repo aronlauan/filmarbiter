@@ -117,3 +117,86 @@ def blend(index: MovieIndex, imdb_ids: list[str], k: int = 3) -> list[Match]:
         Match(imdb_id=index.ids[r], score=float(scores[r]), reasons=explain(index, r, rows))
         for r in chosen
     ]
+
+
+# --- Letterboxd profile -----------------------------------------------------
+
+# A like counts as this many stars above the user's own average.
+LIKE_BONUS = 0.5
+# Films rated below the user's average push the profile away at reduced strength,
+# so it doesn't swing toward "anything unlike what I disliked".
+NEGATIVE_SCALE = 0.5
+
+
+@dataclass
+class RatedFilm:
+    imdb_id: str
+    rating: float | None  # 0.5..5 stars; None = logged without a rating
+    liked: bool = False
+
+
+@dataclass
+class ProfileMatch(Match):
+    because: list[str] = field(default_factory=list)  # IMDb IDs of the user's films
+
+
+def profile_weights(films: list[RatedFilm]) -> np.ndarray:
+    """Per-film weight: (rating - user's mean) + like bonus; negatives scaled down.
+    Falls back to equal positive weights when that leaves nothing positive
+    (e.g. every film rated the same, or no ratings at all)."""
+    rated = [f.rating for f in films if f.rating is not None]
+    mean = float(np.mean(rated)) if rated else 0.0
+    w = np.array(
+        [
+            ((f.rating - mean) if f.rating is not None else 0.0) + (LIKE_BONUS if f.liked else 0.0)
+            for f in films
+        ],
+        dtype=np.float32,
+    )
+    w = np.where(w < 0, w * NEGATIVE_SCALE, w)
+    if not (w > 0).any():
+        # No signal beyond "they watched these": treat rated-at-or-above-mean (or,
+        # with no ratings, everything logged) as equally liked.
+        w = np.array(
+            [1.0 if (f.rating is None or f.rating >= mean or f.liked) else 0.0 for f in films],
+            dtype=np.float32,
+        )
+    return w
+
+
+def recommend_for_profile(
+    index: MovieIndex, films: list[RatedFilm], k: int = 10
+) -> list[ProfileMatch]:
+    """Top-k unseen movies for a user's logged films."""
+    known = [f for f in films if f.imdb_id in index.row]
+    if not known:
+        return []
+    rows = [index.row[f.imdb_id] for f in known]
+    weights = profile_weights(known)
+    if not weights.any():
+        return []
+
+    profile = weights @ index.matrix[rows]
+    profile /= np.linalg.norm(profile) or 1.0
+    scores = ((index.matrix @ profile) * _quality_factor(index)).astype(np.float32)
+    scores[rows] = -np.inf  # never recommend something they've logged
+
+    chosen = sorted(_mmr(index, scores, k), key=lambda r: -scores[r])
+    positive = [(r, w) for r, w in zip(rows, weights, strict=True) if w > 0]
+    pos_rows = np.array([r for r, _ in positive])
+    pos_w = np.array([w for _, w in positive], dtype=np.float32)
+
+    results = []
+    for r in chosen:
+        # "Because you liked": the user's positive films contributing most to this pick.
+        contrib = (index.matrix[pos_rows] @ index.matrix[r]) * pos_w
+        top = [int(pos_rows[i]) for i in np.argsort(-contrib)[:3]]
+        results.append(
+            ProfileMatch(
+                imdb_id=index.ids[r],
+                score=float(scores[r]),
+                reasons=explain(index, r, top),
+                because=[index.ids[t] for t in top],
+            )
+        )
+    return results

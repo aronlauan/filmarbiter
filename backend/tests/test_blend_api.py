@@ -1,47 +1,11 @@
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, insert, update
 
 from app.main import app
-from app.models import Movie, MovieKeyword
-from app.recommender.features import BlockWeights
 from app.recommender.index import MovieIndex
 from app.recommender.state import get_index
-from ingest.build_vectors import build
-from tests.conftest import fake_embed
-
-
-@pytest.fixture
-def index(catalog: Engine, tmp_path: Path) -> MovieIndex:
-    """Vectors built from the fixture catalog, saved and loaded like production."""
-    with catalog.begin() as conn:
-        for imdb_id, overview, coll in [
-            ("tt0000001", "a master thief plans one last heist", None),
-            ("tt0000002", "two cops investigate a drug lord", None),
-            ("tt0000006", "the aging patriarch of a crime dynasty", 230),
-            ("tt0000007", "a crime family patriarch hands over power", 230),
-        ]:
-            conn.execute(
-                update(Movie)
-                .where(Movie.imdb_id == imdb_id)
-                .values(overview=overview, collection_id=coll, original_language="en")
-            )
-        conn.execute(
-            insert(MovieKeyword),
-            [
-                {"imdb_id": "tt0000001", "keyword_id": 1, "name": "heist"},
-                {"imdb_id": "tt0000001", "keyword_id": 2, "name": "sequel"},  # ignored tag
-                {"imdb_id": "tt0000002", "keyword_id": 1, "name": "heist"},
-                {"imdb_id": "tt0000002", "keyword_id": 2, "name": "sequel"},
-            ],
-        )
-    path = tmp_path / "vectors.npz"
-    meta = build(catalog, path, fake_embed, BlockWeights())
-    assert meta["movies"] == 6 and path.with_suffix(".json").exists()
-    return MovieIndex.load(catalog, path)
 
 
 @pytest.fixture

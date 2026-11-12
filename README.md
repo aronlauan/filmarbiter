@@ -50,7 +50,9 @@ Each movie is turned into one vector (~760 numbers), and similarity is cosine si
 2. Exclude the picks and their sequels (TMDB collection).
 3. Choose the 3 results with MMR so they aren't near-duplicates.
 
-**Letterboxd:** taste vector = Σ (rating − the user's average rating) × movie vector, with a small bonus for ♥ likes. Logged films are excluded, then the same quality factor and MMR steps apply.
+**Letterboxd:** taste vector = Σ (rating − the user's average rating) × movie vector, with a small bonus for ♥ likes; below-average ratings count at half strength. Logged films are excluded, then the same quality factor and MMR steps apply. Each result lists the user's films that contributed most ("because you rated…").
+
+Letterboxd films are matched to the catalog by normalised title + year, then by subtitle ("Star Wars: The Last Jedi" ↔ "Star Wars: Episode VIII - The Last Jedi"), then a few capped lookups of the Letterboxd film page's IMDb link. On a 3,485-film profile, 2,483 matched; nearly all the rest are outside the catalog. The import takes ~35 s for that profile, mostly paging through Letterboxd.
 
 Each result carries a "why" line built from shared keywords, genres and people.
 

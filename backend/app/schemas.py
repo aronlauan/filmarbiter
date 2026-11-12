@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.models import Movie
@@ -91,3 +94,61 @@ class BlendResult(BaseModel):
 class BlendResponse(BaseModel):
     picks: list[MovieSummary]
     results: list[BlendResult]
+
+
+# --- Letterboxd -------------------------------------------------------------
+
+
+class LetterboxdProfileOut(BaseModel):
+    username: str
+    display_name: str
+    avatar_url: str | None
+    films_count: int
+
+
+class VerifyResponse(BaseModel):
+    # ok: exists and is public; not_found / private / invalid (bad username format)
+    status: Literal["ok", "not_found", "private", "invalid"]
+    profile: LetterboxdProfileOut | None = None
+
+
+class ImportRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    refresh: bool = False
+
+
+class ImportStatus(BaseModel):
+    job_id: str
+    username: str
+    status: Literal["pending", "running", "done", "failed"]
+    phase: Literal["fetching", "matching", "saving"] | None
+    films_total: int | None
+    films_fetched: int
+    films_matched: int
+    films_rated: int
+    error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class BecauseFilm(BaseModel):
+    imdb_id: str
+    title: str
+    year: int | None
+    rating: float | None
+    liked: bool
+
+
+class ProfileRecommendation(BaseModel):
+    movie: MovieDetail
+    score: float
+    reasons: MatchReasons
+    because: list[BecauseFilm]
+
+
+class RecommendationsResponse(BaseModel):
+    username: str
+    imported_at: datetime | None
+    films_logged: int
+    films_matched: int
+    results: list[ProfileRecommendation]
