@@ -84,3 +84,20 @@ def test_profile_is_a_unit_vector_of_weighted_films() -> None:
     sims = index.matrix @ index.matrix[index.row["h1"]]
     sims[index.row["h1"]] = -np.inf
     assert top.imdb_id in {index.ids[i] for i in np.argsort(-sims)[:2]}
+
+
+def test_because_films_vary_across_results() -> None:
+    # Five loved heist films; without the repeat penalty every pick would cite the
+    # same top-weighted favourites.
+    loved = [
+        M(f"l{i}", HEIST, overview=f"a crew plans heist number {i} in city {i}") for i in range(5)
+    ]
+    candidates = [
+        M(f"c{i}", HEIST, overview=f"thieves plan a daring heist in town {i}") for i in range(4)
+    ]
+    index = make_index(loved + candidates + [M("a1", ANIMATION)])
+    films = [RatedFilm(f"l{i}", 5.0 if i == 0 else 4.5) for i in range(5)]
+    films.append(RatedFilm("a1", 1.0))
+    results = recommend_for_profile(index, films, k=3)
+    cited = [b for r in results for b in r.because]
+    assert len(set(cited)) > 3

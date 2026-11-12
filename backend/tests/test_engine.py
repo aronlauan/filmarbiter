@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from app.recommender.engine import UnknownMoviesError, _mmr, blend
+from app.recommender.engine import UnknownMoviesError, _mmr, blend, explain
 from app.recommender.features import MovieFeatures, build_matrix
 from app.recommender.index import MovieIndex
 from tests.conftest import fake_embed
@@ -192,3 +192,23 @@ def test_unknown_ids() -> None:
     with pytest.raises(UnknownMoviesError) as e:
         blend(index, ["h1", "nope"])
     assert e.value.imdb_ids == ["nope"]
+
+
+def test_explain_by_rarity_prefers_specific_shared_tags() -> None:
+    # "drama-ish" is on every movie; "safecracking" only on a few. Shared with more
+    # sources isn't enough to beat a much rarer tag when ranking by count x IDF.
+    common = dict(HEIST, keywords=["drama-ish"])
+    movies = [M(f"s{i}", common) for i in range(6)]
+    # Make "drama-ish" genuinely ubiquitous (like "based on novel or book").
+    movies += [M(f"bg{i}", common, overview=f"background film {i}") for i in range(20)]
+    movies += [
+        M("s6", HEIST, keywords=["drama-ish", "safecracking"]),
+        M("s7", HEIST, keywords=["drama-ish", "safecracking"]),
+        M("result", HEIST, keywords=["drama-ish", "safecracking"]),
+    ]
+    index = make_index(movies)
+    sources = [index.row[f"s{i}"] for i in range(8)]
+    row = index.row["result"]
+
+    assert explain(index, row, sources).keywords[0] == "drama-ish"  # most shared first
+    assert explain(index, row, sources, by_rarity=True).keywords[0] == "safecracking"

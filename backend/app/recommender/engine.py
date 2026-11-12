@@ -11,8 +11,13 @@ MAX_PICKS = 5
 
 # Blender score = CENTROID_WEIGHT * sim(centroid) + (1 - CENTROID_WEIGHT) * min_i sim(pick_i)
 CENTROID_WEIGHT = 0.7
-# Final score = base * (QUALITY_FLOOR + (1 - QUALITY_FLOOR) * quality)
-QUALITY_FLOOR = 0.85
+# Final score = base * (floor + (1 - floor) * quality), quality in 0..1 (IMDb-based).
+# Tuned with scripts/eval_recs.py: 0.85 let 4-5 star IMDb films into the top 3; lower
+# floors improved expected-film hits until results drifted toward famous films
+# regardless of the picks (Pulp Fiction for any crime blend) at ~0.4. A Letterboxd
+# profile averages hundreds of films into a blander vector and benefits from more.
+QUALITY_FLOOR = 0.5
+PROFILE_QUALITY_FLOOR = 0.4
 # MMR trade-off between relevance and novelty when choosing the final k.
 MMR_LAMBDA = 0.8
 CANDIDATE_POOL = 50
@@ -38,8 +43,9 @@ class Match:
     reasons: Reasons
 
 
-def _quality_factor(index: MovieIndex) -> np.ndarray:
-    return QUALITY_FLOOR + (1 - QUALITY_FLOOR) * index.quality
+def _quality_factor(index: MovieIndex, floor: float | None = None) -> np.ndarray:
+    floor = QUALITY_FLOOR if floor is None else floor
+    return floor + (1 - floor) * index.quality
 
 
 def _mmr(index: MovieIndex, scores: np.ndarray, k: int, lam: float = MMR_LAMBDA) -> list[int]:
@@ -61,8 +67,15 @@ def _mmr(index: MovieIndex, scores: np.ndarray, k: int, lam: float = MMR_LAMBDA)
     return [int(pool[i]) for i in chosen]
 
 
-def explain(index: MovieIndex, row: int, source_rows: list[int]) -> Reasons:
-    """What a result shares with the movies it was recommended from."""
+def explain(
+    index: MovieIndex, row: int, source_rows: list[int], by_rarity: bool = False
+) -> Reasons:
+    """What a result shares with the movies it was recommended from.
+
+    Keywords are ranked by how many sources share them, then by rarity. With many
+    sources (a Letterboxd profile) pass by_rarity=True to rank by count x IDF
+    instead, so ubiquitous tags ("based on novel or book") don't win on count alone.
+    """
     kw_counts: Counter[str] = Counter()
     genre_counts: Counter[str] = Counter()
     people_counts: Counter[str] = Counter()
@@ -74,8 +87,11 @@ def explain(index: MovieIndex, row: int, source_rows: list[int]) -> Reasons:
         genre_counts.update(result_genres & set(index.features[src].genres))
         people_counts.update(result_people.keys() & index.people_roles[src].keys())
 
-    # Keywords: shared with the most sources first, then the rarest (most specific).
-    keywords = sorted(kw_counts, key=lambda k: (-kw_counts[k], -index.keyword_idf.get(k, 0), k))
+    idf = index.keyword_idf
+    if by_rarity:
+        keywords = sorted(kw_counts, key=lambda k: (-kw_counts[k] * idf.get(k, 0), k))
+    else:
+        keywords = sorted(kw_counts, key=lambda k: (-kw_counts[k], -idf.get(k, 0), k))
     genres = sorted(genre_counts, key=lambda g: (-genre_counts[g], g))
     people = sorted(people_counts, key=lambda p: (-people_counts[p], p))
     return Reasons(
@@ -126,6 +142,11 @@ LIKE_BONUS = 0.5
 # Films rated below the user's average push the profile away at reduced strength,
 # so it doesn't swing toward "anything unlike what I disliked".
 NEGATIVE_SCALE = 0.5
+# Each time one of the user's films is cited in "because you rated", its chance of
+# being cited again shrinks by this factor, so picks draw on more of their history.
+BECAUSE_REPEAT_PENALTY = 0.6
+# How many of the user's related, positively rated films a "Why" line draws on.
+EXPLAIN_SOURCES = 25
 
 
 @dataclass
@@ -178,24 +199,28 @@ def recommend_for_profile(
 
     profile = weights @ index.matrix[rows]
     profile /= np.linalg.norm(profile) or 1.0
-    scores = ((index.matrix @ profile) * _quality_factor(index)).astype(np.float32)
+    quality = _quality_factor(index, PROFILE_QUALITY_FLOOR)
+    scores = ((index.matrix @ profile) * quality).astype(np.float32)
     scores[rows] = -np.inf  # never recommend something they've logged
 
     chosen = sorted(_mmr(index, scores, k), key=lambda r: -scores[r])
-    positive = [(r, w) for r, w in zip(rows, weights, strict=True) if w > 0]
-    pos_rows = np.array([r for r, _ in positive])
-    pos_w = np.array([w for _, w in positive], dtype=np.float32)
+    pos = np.array([r for r, w in zip(rows, weights, strict=True) if w > 0])
 
+    cited: Counter[int] = Counter()
     results = []
     for r in chosen:
-        # "Because you liked": the user's positive films contributing most to this pick.
-        contrib = (index.matrix[pos_rows] @ index.matrix[r]) * pos_w
-        top = [int(pos_rows[i]) for i in np.argsort(-contrib)[:3]]
+        sims = index.matrix[pos] @ index.matrix[r]
+        # "Because you rated": the user's liked films most like this pick, avoiding
+        # citing the same favourites on every result.
+        penalty = np.array([BECAUSE_REPEAT_PENALTY ** cited[int(p)] for p in pos])
+        top = [int(pos[i]) for i in np.argsort(-(sims * penalty))[:3]]
+        cited.update(top)
+        related = [int(pos[i]) for i in np.argsort(-sims)[:EXPLAIN_SOURCES]]
         results.append(
             ProfileMatch(
                 imdb_id=index.ids[r],
                 score=float(scores[r]),
-                reasons=explain(index, r, top),
+                reasons=explain(index, r, related, by_rarity=True),
                 because=[index.ids[t] for t in top],
             )
         )
