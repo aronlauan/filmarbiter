@@ -1,0 +1,33 @@
+[project]
+name = "filmarbiter"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.5",
+    "httpx>=0.28.1",
+    "letterboxdpy>=6.7.0",
+    "numpy>=2.5.4",
+    "polars>=2.1.0",
+    "pydantic-settings>=2.16.2",
+    "scikit-learn>=1.9.1",
+    "sqlalchemy>=2.1.8",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "ruff>=0.17.4",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
