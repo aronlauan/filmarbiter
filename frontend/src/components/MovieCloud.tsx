@@ -77,8 +77,11 @@ const DRIFT_HOVER = 0.00004
 const THROW_SPIN = 0.0024
 /** Radians of turn per pixel dragged. */
 const DRAG_TURN = 0.006
-/** Movement (px) before a press counts as a drag rather than a tap. */
+/** Movement (px) before a press counts as a drag rather than a tap (more for fingers). */
 const DRAG_SLOP = 6
+const TOUCH_SLOP = 10
+/** Fastest a flick can set the cloud turning, radians per ms (about 230°/s). */
+const MAX_FLICK = 0.004
 const FLIP_MS = 600
 
 // Small fixed tilts so posters look tossed, not tiled.
@@ -204,7 +207,19 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     k: 0, // 0 = gathered in the hand, 1 = spread out into the cloud
     kv: 0,
     hovering: false,
-    drag: null as null | { id: number; x0: number; y0: number; x: number; y: number; t: number; moved: boolean },
+    drag: null as null | {
+      id: number
+      touch: boolean
+      x0: number
+      y0: number
+      x: number
+      y: number
+      t: number
+      moved: boolean
+      /** Smoothed turn speed of the drag, radians per ms, kept for the flick on release. */
+      vx: number
+      vy: number
+    },
     /** A card brought round to the front for keyboard users. */
     seek: null as number | null,
     points: [] as Vec[],
@@ -327,7 +342,18 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (opened || (e.pointerType === 'mouse' && e.button !== 0)) return
     sim.current.seek = null
-    sim.current.drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t: performance.now(), moved: false }
+    sim.current.drag = {
+      id: e.pointerId,
+      touch: e.pointerType !== 'mouse',
+      x0: e.clientX,
+      y0: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      moved: false,
+      vx: 0,
+      vy: 0,
+    }
     dragged.current = false
   }
 
@@ -336,8 +362,20 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     const d = s.drag
     if (!d || d.id !== e.pointerId) return
     if (!d.moved) {
-      if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < DRAG_SLOP) return
+      const mx = e.clientX - d.x0
+      const my = e.clientY - d.y0
+      if (Math.hypot(mx, my) < (d.touch ? TOUCH_SLOP : DRAG_SLOP)) return
+      // On touch, a swipe that starts mostly vertical is the page scrolling: let it go
+      // without turning the cloud. One that starts sideways spins it, in any direction.
+      if (d.touch && Math.abs(my) > Math.abs(mx)) {
+        s.drag = null
+        return
+      }
       d.moved = true
+      // Start the turn from here, so the slop doesn't land as one big jump.
+      d.x = e.clientX
+      d.y = e.clientY
+      d.t = performance.now()
       dragged.current = true
       // Only capture once it's a drag, so a plain tap still clicks the poster under it.
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -345,25 +383,34 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     const now = performance.now()
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
-    const dt = Math.max(now - d.t, 1)
+    // Touch events can land a millisecond apart, so floor the interval and smooth
+    // the speed: one jittery sample shouldn't fling the cloud.
+    const dt = Math.max(now - d.t, 8)
     s.rot = mul(mul(rotY(dx * DRAG_TURN), rotX(-dy * DRAG_TURN)), s.rot)
-    // Remember the flick so the cloud coasts on after release.
-    s.vx = (dx * DRAG_TURN) / dt
-    s.vy = (-dy * DRAG_TURN) / dt
+    d.vx += ((dx * DRAG_TURN) / dt - d.vx) * 0.4
+    d.vy += ((-dy * DRAG_TURN) / dt - d.vy) * 0.4
     d.x = e.clientX
     d.y = e.clientY
     d.t = now
   }
 
   const endDrag = (e: PointerEvent<HTMLDivElement>) => {
-    const d = sim.current.drag
+    const s = sim.current
+    const d = s.drag
     if (!d || d.id !== e.pointerId) return
-    // A pause before letting go means no flick.
-    if (performance.now() - d.t > 80) {
-      sim.current.vx = 0
-      sim.current.vy = 0
+    s.drag = null
+    if (!d.moved) return
+    // Coast on with the flick, capped. A pause before letting go, or the browser
+    // taking the gesture over (pointercancel), means no flick.
+    if (e.type === 'pointercancel' || performance.now() - d.t > 80) {
+      s.vx = 0
+      s.vy = 0
+      return
     }
-    sim.current.drag = null
+    const speed = Math.hypot(d.vx, d.vy)
+    const cap = speed > MAX_FLICK ? MAX_FLICK / speed : 1
+    s.vx = d.vx * cap
+    s.vy = d.vy * cap
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
