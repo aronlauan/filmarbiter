@@ -1,21 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbbf24"/>
-      <stop offset="1" stop-color="#ea580c"/>
-    </linearGradient>
     <!-- A film reel: dark disc with holes round a hub -->
     <g id="reel">
       <circle r="10.5" fill="#1c1917"/>
-      <circle r="2" fill="#fafaf9"/>
-      <circle cy="-6" r="2.4" fill="#fafaf9"/>
-      <circle cx="5.2" cy="3" r="2.4" fill="#fafaf9"/>
-      <circle cx="-5.2" cy="3" r="2.4" fill="#fafaf9"/>
+      <circle r="2" fill="#f5f2ea"/>
+      <circle cy="-6" r="2.4" fill="#f5f2ea"/>
+      <circle cx="5.2" cy="3" r="2.4" fill="#f5f2ea"/>
+      <circle cx="-5.2" cy="3" r="2.4" fill="#f5f2ea"/>
     </g>
   </defs>
-  <use href="#reel" x="14" y="17"/>
-  <use href="#reel" x="35" y="17"/>
-  <!-- Lens hood, then the body over its back edge -->
-  <path d="M41 39 L60 30 V58 L41 49 Z" fill="#1c1917" stroke="#1c1917" stroke-width="1.5" stroke-linejoin="round"/>
-  <rect x="3" y="29" width="42" height="28" rx="5" fill="url(#body)" stroke="#1c1917" stroke-width="1.5"/>
+  <!-- Off-white backdrop -->
+  <rect width="64" height="64" rx="14" fill="#f5f2ea"/>
+  <g transform="translate(8.5 9) scale(0.75)">
+    <use href="#reel" x="14" y="17"/>
+    <use href="#reel" x="35" y="17"/>
+    <path d="M41 39 L60 30 V58 L41 49 Z" fill="#1c1917" stroke="#1c1917" stroke-width="1.5" stroke-linejoin="round"/>
+    <rect x="3" y="29" width="42" height="28" rx="5" fill="#1c1917"/>
+  </g>
 </svg>
