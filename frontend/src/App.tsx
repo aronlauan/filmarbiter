@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
+import ServerWakeNotice from './components/ServerWakeNotice'
 import { LETTERBOXD_ENABLED } from './features'
 import Blender from './pages/Blender'
 import Home from './pages/Home'
@@ -46,6 +47,8 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+
+      <ServerWakeNotice />
 
       <footer className="border-t border-stone-200 px-4 py-4 text-xs text-stone-500 dark:border-stone-800">
         <p className={`mx-auto ${width}`}>

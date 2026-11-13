@@ -107,6 +107,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return resp.json() as Promise<T>
 }
 
+/** Resolves once the API answers. On Render's free tier the first request after a
+ *  nap waits while the server boots (up to about a minute). */
+export async function checkHealth(signal?: AbortSignal): Promise<void> {
+  await request('/api/health', { signal })
+}
+
 export function searchMovies(q: string, signal?: AbortSignal): Promise<MovieSummary[]> {
   const params = new URLSearchParams({ q, limit: '8' })
   return request(`/api/movies/search?${params}`, { signal })
