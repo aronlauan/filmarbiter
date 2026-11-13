@@ -182,7 +182,7 @@ export default function Home() {
 
         <header className="shrink-0 text-center">
           <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Just pick a movie already.</h1>
-          <p className="mt-1.5 text-sm text-stone-600 sm:text-base dark:text-stone-400">Tap a poster in the cloud to flip it.</p>
+          <p className="mt-1.5 text-sm text-stone-600 sm:text-base dark:text-stone-400">Tap a poster in the cloud to flip it.<span className="hidden pointer-coarse:inline"> Hold, then drag to spin.</span></p>
         </header>
 
         {/* The cloud: posters gather and shake here, then burst out into a sphere you can spin. */}

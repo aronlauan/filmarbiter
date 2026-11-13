@@ -80,6 +80,8 @@ const DRAG_TURN = 0.006
 /** Movement (px) before a press counts as a drag rather than a tap (more for fingers). */
 const DRAG_SLOP = 6
 const TOUCH_SLOP = 10
+/** On touch, holding still this long (ms) grabs the cloud, so a drag spins it instead of scrolling. */
+const HOLD_MS = 250
 /** Fastest a flick can set the cloud turning, radians per ms (about 230°/s). */
 const MAX_FLICK = 0.004
 const FLIP_MS = 600
@@ -216,6 +218,8 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
       y: number
       t: number
       moved: boolean
+      /** Touch only: held still long enough to grab the cloud, so the page won't scroll. */
+      held: boolean
       /** Smoothed turn speed of the drag, radians per ms, kept for the flick on release. */
       vx: number
       vy: number
@@ -225,6 +229,8 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     points: [] as Vec[],
   })
   const dragged = useRef(false) // the last press was a drag, so its click isn't a tap
+  const holdTimer = useRef(0)
+  const [grabbed, setGrabbed] = useState(false)
 
   const n = items.length
   const shaking = phase === 'shaking'
@@ -339,6 +345,31 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
 
   // --- Dragging ---------------------------------------------------------------
 
+  // Once a finger has grabbed the cloud, stop the page scrolling under it. This needs a
+  // non-passive native listener: React's touch handlers can't cancel the scroll.
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const onTouchMove = (e: TouchEvent) => {
+      if (sim.current.drag?.held && e.cancelable) e.preventDefault()
+    }
+    box.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      box.removeEventListener('touchmove', onTouchMove)
+      window.clearTimeout(holdTimer.current)
+    }
+  }, [])
+
+  const grab = () => {
+    const d = sim.current.drag
+    if (!d || d.moved) return
+    d.held = true
+    d.moved = true
+    dragged.current = true // letting go after a hold isn't a tap on a poster
+    setGrabbed(true)
+    navigator.vibrate?.(10)
+  }
+
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (opened || (e.pointerType === 'mouse' && e.button !== 0)) return
     sim.current.seek = null
@@ -351,10 +382,13 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
       y: e.clientY,
       t: performance.now(),
       moved: false,
+      held: false,
       vx: 0,
       vy: 0,
     }
     dragged.current = false
+    window.clearTimeout(holdTimer.current)
+    if (e.pointerType !== 'mouse') holdTimer.current = window.setTimeout(grab, HOLD_MS)
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -365,8 +399,9 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
       const mx = e.clientX - d.x0
       const my = e.clientY - d.y0
       if (Math.hypot(mx, my) < (d.touch ? TOUCH_SLOP : DRAG_SLOP)) return
-      // On touch, a swipe that starts mostly vertical is the page scrolling: let it go
-      // without turning the cloud. One that starts sideways spins it, in any direction.
+      // Moved before the hold grabbed it: on touch, a swipe that starts mostly vertical
+      // is the page scrolling, so let it go. One that starts sideways spins the cloud.
+      window.clearTimeout(holdTimer.current)
       if (d.touch && Math.abs(my) > Math.abs(mx)) {
         s.drag = null
         return
@@ -399,6 +434,8 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     const d = s.drag
     if (!d || d.id !== e.pointerId) return
     s.drag = null
+    window.clearTimeout(holdTimer.current)
+    setGrabbed(false)
     if (!d.moved) return
     // Coast on with the flick, capped. A pause before letting go, or the browser
     // taking the gesture over (pointercancel), means no flick.
@@ -472,7 +509,7 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
     <div
       ref={boxRef}
       role="group"
-      aria-label="Movie cloud: drag or use the arrow keys to spin it, and pick a poster to flip it over"
+      aria-label="Movie cloud: drag (on touch screens, hold then drag) or use the arrow keys to spin it, and pick a poster to flip it over"
       aria-busy={shaking}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -486,11 +523,14 @@ export default function MovieCloud({ items, phase, reducedMotion, onOpenChange }
         const i = Number((e.target as HTMLElement).dataset.index)
         if (!Number.isNaN(i) && (e.target as HTMLElement).matches(':focus-visible')) sim.current.seek = i
       }}
-      // Vertical swipes still scroll the page on touch screens; sideways ones spin the cloud.
-      style={{ touchAction: 'pan-y' }}
+      // Touch: a quick vertical swipe scrolls the page; a sideways swipe, or a hold then
+      // a drag in any direction, spins the cloud. No long-press menus or image callouts.
+      onContextMenu={(e) => sim.current.drag?.touch && e.preventDefault()}
+      style={{ touchAction: 'pan-y', WebkitTouchCallout: 'none' }}
       className="relative h-full w-full cursor-grab select-none active:cursor-grabbing"
     >
-      <div className={`absolute inset-0 ${shaking ? 'animate-[shake_500ms_ease-in-out_400ms_infinite] motion-reduce:animate-none' : ''}`}>
+      {/* Grabbed: the cloud draws in slightly, so you can feel it's held. */}
+      <div className={`absolute inset-0 transition-[scale] duration-200 ${grabbed ? 'scale-[0.96]' : ''} ${shaking ? 'animate-[shake_500ms_ease-in-out_400ms_infinite] motion-reduce:animate-none' : ''}`}>
         {items.map((r, i) => {
           const m = r?.movie
           const src = m ? posterSrc(m.poster_url, 'w185') : null
