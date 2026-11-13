@@ -100,8 +100,8 @@ const MAX_ZOOM = 12
 const LABEL_ZOOM = 2.6
 const MAX_ZOOM_LABELS = 120
 const DRAG_THRESHOLD = 4 // px a press can move and still count as a click
-const FONT = 'ui-monospace, SFMono-Regular, Menlo, monospace'
-const SIGN_FONT = 'ui-sans-serif, system-ui, sans-serif'
+const FONT = "Futura, 'Futura PT', Jost, 'Century Gothic', sans-serif"
+const SIGN_FONT = FONT
 
 const easeOut = (p: number) => 1 - (1 - p) ** 3
 const isDark = (pal: Palette) => pal === DARK

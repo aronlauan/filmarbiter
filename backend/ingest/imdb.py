@@ -226,8 +226,7 @@ def load_catalog(
             delete(Person).where(~Person.nconst.in_(select(MoviePerson.nconst).distinct()))
         )
 
-        if eng.dialect.name == "sqlite":
-            rebuild_search_index(conn)
+        rebuild_search_index(conn)
 
         counts = {
             "movies": conn.scalar(select(func.count()).select_from(Movie)),

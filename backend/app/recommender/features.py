@@ -8,13 +8,18 @@ movies missing a block (e.g. no TMDB keywords) share the score among the blocks
 they do have. See the README "How recommendations work" section.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy import sparse
-from sklearn.decomposition import TruncatedSVD
-from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
+
+# scipy and scikit-learn are only needed to build vectors (ingest), not to serve them,
+# so they're imported inside the build functions: the API stays ~75 MB lighter.
+if TYPE_CHECKING:
+    from scipy import sparse
 
 Embedder = Callable[[list[str]], np.ndarray]
 
@@ -83,12 +88,17 @@ def _reduce(x: sparse.csr_matrix, dims: int, seed: int = 0) -> np.ndarray:
     """TF-IDF matrix -> dense, at most `dims` columns via truncated SVD."""
     if x.shape[1] <= dims or min(x.shape) <= 2:
         return x.toarray().astype(np.float32)
+    from sklearn.decomposition import TruncatedSVD
+
     n = min(dims, x.shape[0] - 1, x.shape[1] - 1)
     return TruncatedSVD(n_components=n, random_state=seed).fit_transform(x).astype(np.float32)
 
 
 def _tfidf_lists(docs: Sequence[list[str]], min_df: int) -> sparse.csr_matrix:
     """TF-IDF over pre-tokenised lists (each list is a set of tags)."""
+    from scipy import sparse
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
     if not any(docs):
         return sparse.csr_matrix((len(docs), 0), dtype=np.float32)
     vec = TfidfVectorizer(
@@ -125,6 +135,9 @@ def genre_block(movies: Sequence[MovieFeatures]) -> np.ndarray:
 
 
 def people_block(movies: Sequence[MovieFeatures], dims: int = 128) -> np.ndarray:
+    from scipy import sparse
+    from sklearn.feature_extraction.text import TfidfTransformer
+
     vocab: dict[str, int] = {}
     rows, cols, vals = [], [], []
     for i, m in enumerate(movies):

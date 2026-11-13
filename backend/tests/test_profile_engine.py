@@ -88,7 +88,7 @@ def test_profile_is_a_unit_vector_of_weighted_films() -> None:
 
 def test_because_films_vary_across_results() -> None:
     # Five loved heist films; without the repeat penalty every pick would cite the
-    # same top-weighted favourites.
+    # same top-weighted favorites.
     loved = [
         M(f"l{i}", HEIST, overview=f"a crew plans heist number {i} in city {i}") for i in range(5)
     ]

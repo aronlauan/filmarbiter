@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -12,6 +13,16 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{REPO_ROOT / 'data' / 'filmarbiter.db'}"
     tmdb_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg(cls, url: str) -> str:
+        """Accept a Postgres URL as Neon/Render print it (postgresql://...) and use the
+        psycopg 3 driver; SQLAlchemy would otherwise look for psycopg2."""
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url.removeprefix(prefix)
+        return url
 
     # Catalog filter applied at IMDb ingest time.
     min_votes: int = 5000

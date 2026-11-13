@@ -228,7 +228,7 @@ def recommend_for_profile(
     for r in chosen:
         sims = index.matrix[pos] @ index.matrix[r]
         # "Because you rated": the user's liked films most like this pick, avoiding
-        # citing the same favourites on every result.
+        # citing the same favorites on every result.
         penalty = np.array([BECAUSE_REPEAT_PENALTY ** cited[int(p)] for p in pos])
         top = [int(pos[i]) for i in np.argsort(-(sims * penalty))[:3]]
         cited.update(top)

@@ -134,8 +134,22 @@ def place_on_grid(
     return out
 
 
+def map_candidates(session: Session, ids: list[str], candidates: int) -> list[Movie]:
+    """The most-voted mapped movies, which compete for seats in the theater."""
+    return list(
+        session.scalars(
+            select(Movie)
+            .where(Movie.imdb_id.in_(ids))
+            .order_by(Movie.imdb_votes.desc(), Movie.imdb_id)
+            .limit(candidates)
+        ).all()
+    )
+
+
 def split_sections(xy: np.ndarray, k: int = SECTIONS) -> np.ndarray:
-    """Section index per point: k-means on map positions, so sections are contiguous."""
+    """Section index per point: k-means on map positions, so sections are contiguous.
+    Run by ingest/build_map.py and saved in map.npz; importing scikit-learn costs the
+    API ~100 MB, so MovieMap.load only calls this when the saved sections are stale."""
     from sklearn.cluster import KMeans
 
     k = min(k, len(xy) // 10)
@@ -344,17 +358,21 @@ class MovieMap:
         with np.load(map_path, allow_pickle=False) as npz:
             ids = [str(x) for x in npz["ids"]]
             xy = npz["xy"].astype(np.float32)
+            saved = (
+                ([str(x) for x in npz["section_ids"]], npz["section_labels"].astype(np.int64))
+                if "section_ids" in npz.files
+                else None
+            )
         rows = {imdb_id: i for i, imdb_id in enumerate(ids)}
 
         with Session(eng) as s:
-            movies = s.scalars(
-                select(Movie)
-                .where(Movie.imdb_id.in_(ids))
-                .order_by(Movie.imdb_votes.desc(), Movie.imdb_id)
-                .limit(candidates)
-            ).all()
+            movies = map_candidates(s, ids, candidates)
         true_xy = xy[[rows[m.imdb_id] for m in movies]].reshape(-1, 2)
-        labels = split_sections(true_xy)
+        if saved and saved[0] == [m.imdb_id for m in movies]:
+            labels = saved[1]  # precomputed by ingest/build_map.py; same result, no sklearn
+        else:
+            log.info("map sections not precomputed for these candidates; computing them")
+            labels = split_sections(true_xy)
         cells = place_on_grid(true_xy, labels)
         seated = [
             (m, cell, int(lab)) for m, cell, lab in zip(movies, cells, labels, strict=True) if cell

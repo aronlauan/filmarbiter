@@ -13,12 +13,12 @@ interface Props {
 
 /** A countertop blender: lid, jar with handle, blades, motor base. While blending,
  *  it jiggles on the counter and its blades whirl. */
-function BlendIcon({ spinning }: { spinning: boolean }) {
+export function BlendIcon({ spinning = false, className = 'h-6 w-6' }: { spinning?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className={`-my-1 h-6 w-6 shrink-0 ${spinning ? 'animate-[jiggle_180ms_linear_infinite] motion-reduce:animate-none' : ''}`}
+      className={`-my-1 ${className} shrink-0 ${spinning ? 'animate-[jiggle_180ms_linear_infinite] motion-reduce:animate-none' : ''}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.6"

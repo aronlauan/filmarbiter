@@ -57,3 +57,63 @@ def test_detail_endpoint(client: TestClient) -> None:
 
 def test_detail_404(client: TestClient) -> None:
     assert client.get("/api/movies/tt9999999").status_code == 404
+
+
+def _make_pickable(session: Session, *imdb_ids: str) -> None:
+    from sqlalchemy import update
+
+    from app.models import Movie
+
+    session.execute(
+        update(Movie)
+        .where(Movie.imdb_id.in_(imdb_ids))
+        .values(imdb_votes=30_000, poster_path="/p.jpg")
+    )
+    session.commit()
+
+
+def _roll(client: TestClient, **params: str) -> list[tuple[str, str]]:
+    resp = client.get("/api/movies/roll", params=params)
+    assert resp.status_code == 200
+    return [(r["genre"], r["movie"]["title"]) for r in resp.json()]
+
+
+def test_roll_only_picks_well_rated_movies_with_posters(
+    client: TestClient, session: Session
+) -> None:
+    assert _roll(client, genres="Crime") == []  # fixtures: few votes, no posters
+    _make_pickable(session, "tt0000006", "tt0000004")  # The Godfather 9.2; tt0000004 is 5.0
+    assert _roll(client, genres="Crime,Drama") == [("Crime", "The Godfather")]
+
+
+def test_roll_one_per_genre_in_order(client: TestClient, session: Session) -> None:
+    _make_pickable(session, "tt0000001", "tt0000006", "tt0000010")  # Heat, Godfather, Amélie
+    for _ in range(5):
+        rolled = _roll(client, genres="Romance,Crime,Drama,Western")
+        assert [g for g, _ in rolled] == ["Romance", "Crime", "Drama"]  # no Westerns
+        assert rolled[0] == ("Romance", "Amélie")
+        assert {rolled[1][1], rolled[2][1]} == {"Heat", "The Godfather"}  # never twice
+
+
+def test_roll_skips_recent_until_used_up(client: TestClient, session: Session) -> None:
+    _make_pickable(session, "tt0000001", "tt0000006")
+    assert _roll(client, genres="Crime", exclude="tt0000001") == [("Crime", "The Godfather")]
+    # Everything excluded: the rotation starts over rather than leaving a gap.
+    assert len(_roll(client, genres="Crime", exclude="tt0000001,tt0000006")) == 1
+
+
+def test_roll_several_per_genre(client: TestClient, session: Session) -> None:
+    _make_pickable(session, "tt0000001", "tt0000006", "tt0000010")  # Heat, Godfather, Amélie
+    rolled = _roll(client, genres="Crime,Comedy", per_genre="2")
+    assert [g for g, _ in rolled] == ["Crime", "Crime", "Comedy"]  # only one pickable Comedy
+    assert {t for _, t in rolled[:2]} == {"Heat", "The Godfather"}
+    # Recent ones are skipped first, then repeats fill the gap.
+    rolled = _roll(client, genres="Crime", per_genre="2", exclude="tt0000001")
+    assert sorted(t for _, t in rolled) == ["Heat", "The Godfather"]
+
+
+def test_roll_validation(client: TestClient) -> None:
+    assert client.get("/api/movies/roll").status_code == 422
+    assert client.get("/api/movies/roll", params={"genres": ""}).status_code == 422
+    bad = {"genres": "Crime", "per_genre": 5}
+    assert client.get("/api/movies/roll", params=bad).status_code == 422

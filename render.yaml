@@ -1,0 +1,57 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec): the API as a Python web
+# service and the React app as a static site. The database is Neon (DATABASE_URL), not
+# a Render database. See README "Deploy" for the first-time steps.
+services:
+  - type: web
+    name: filmarbiter-api
+    runtime: python
+    plan: free # 512 MB / 0.1 CPU, sleeps after 15 min idle. "starter" ($7) stays awake.
+    region: ohio # keep next to the Neon project (ohio <-> AWS us-east-2)
+    rootDir: backend
+    # Main dependencies only (no PyTorch / polars, which only ingest needs), then the
+    # vector + map files from the GitHub release, then migrations.
+    buildCommand: >-
+      pip install uv &&
+      uv sync --frozen --no-default-groups &&
+      .venv/bin/python -m scripts.fetch_data &&
+      .venv/bin/alembic upgrade head
+    startCommand: .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL # Neon connection string, pasted in the dashboard
+        sync: false
+      - key: DATA_RELEASE_URL # bump the tag when you publish new vectors / map
+        value: https://github.com/aronlauan/filmarbiter/releases/download/data-2026-11-12
+      - key: CORS_ORIGINS # the static site's URL (JSON list)
+        value: '["https://filmarbiter.onrender.com"]'
+      - key: PYTHON_VERSION
+        value: 3.14.3
+      # Use Render's Python and copy packages into backend/.venv, so nothing the app
+      # needs lives outside the project directory that Render ships to runtime.
+      - key: UV_PYTHON_DOWNLOADS
+        value: never
+      - key: UV_LINK_MODE
+        value: copy
+      # Fewer glibc malloc arenas: keeps a threaded Python server's RSS down.
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+
+  - type: web
+    name: filmarbiter
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL # the API service's URL (check it in the dashboard)
+        value: https://filmarbiter-api.onrender.com
+      - key: NODE_VERSION
+        value: "26" # matches local development; Vite 8 needs 20.19+
+    routes:
+      - type: rewrite # client-side routing (React Router)
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/* # Vite fingerprints these file names
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

@@ -8,11 +8,10 @@ dependencies = [
     "httpx>=0.28.1",
     "letterboxdpy>=6.7.0",
     "numpy>=2.5.4",
-    "polars>=2.1.0",
+    "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.16.2",
     "scikit-learn>=1.9.1",
     "scipy>=1.18.1",
-    "sentence-transformers>=6.3.0",
     "sqlalchemy>=2.1.8",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -23,6 +22,15 @@ dev = [
     "pytest-asyncio>=1.4.1.post1",
     "ruff>=0.17.4",
 ]
+ingest = [
+    "polars>=2.1.0",
+    "sentence-transformers>=6.3.0",
+]
+
+[tool.uv]
+# Local `uv sync` installs everything. The server only needs the main dependencies:
+# deploys run `uv sync --no-default-groups` (see render.yaml), skipping PyTorch.
+default-groups = ["dev", "ingest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

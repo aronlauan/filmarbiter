@@ -75,6 +75,11 @@ class MovieDetail(MovieSummary):
         )
 
 
+class RolledMovie(BaseModel):
+    genre: str  # the requested genre this movie was drawn for
+    movie: MovieDetail
+
+
 class BlendRequest(BaseModel):
     imdb_ids: list[str] = Field(min_length=1, max_length=MAX_PICKS)
 
