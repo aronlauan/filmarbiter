@@ -76,10 +76,14 @@ export function isServerUnreachable(err: unknown): boolean {
   return err instanceof ApiError && err.status === 0
 }
 
+/** API origin. Empty in development (Vite proxies /api); set VITE_API_URL at build time
+ * when the API lives elsewhere, e.g. https://filmarbiter-api.onrender.com. */
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let resp: Response
   try {
-    resp = await fetch(path, {
+    resp = await fetch(API_BASE + path, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     })
@@ -110,6 +114,25 @@ export function searchMovies(q: string, signal?: AbortSignal): Promise<MovieSumm
 
 export function blendMovies(imdbIds: string[]): Promise<BlendResponse> {
   return request('/api/blend', { method: 'POST', body: JSON.stringify({ imdb_ids: imdbIds }) })
+}
+
+/** TMDB poster at another width (the API hands out w342 URLs). */
+export function posterSrc(url: string | null, size: 'w92' | 'w185' | 'w342'): string | null {
+  return url ? url.replace('/w342/', `/${size}/`) : null
+}
+
+export interface RolledMovie {
+  /** The genre this movie was drawn for. */
+  genre: string
+  movie: MovieDetail
+}
+
+/** `perGenre` random well-rated movies for each genre, in the order given, skipping
+ *  `exclude`. Genres with nothing to offer are left out. */
+export function rollMovies(genres: string[], perGenre: number, exclude: string[]): Promise<RolledMovie[]> {
+  const params = new URLSearchParams({ genres: genres.join(','), per_genre: String(perGenre) })
+  if (exclude.length) params.set('exclude', exclude.join(','))
+  return request(`/api/movies/roll?${params}`)
 }
 
 // --- Movie map --------------------------------------------------------------

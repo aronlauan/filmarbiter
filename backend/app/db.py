@@ -7,8 +7,12 @@ from app.config import settings
 
 
 def make_engine(url: str) -> Engine:
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    eng = create_engine(url, connect_args=connect_args)
+    if url.startswith("sqlite"):
+        eng = create_engine(url, connect_args={"check_same_thread": False})
+    else:
+        # Neon suspends idle computes after ~5 minutes and drops their connections, so
+        # check connections before use and don't keep them past that.
+        eng = create_engine(url, pool_pre_ping=True, pool_recycle=240)
     if eng.dialect.name == "sqlite":
         # Enforce foreign keys (and ON DELETE CASCADE) like Postgres does.
         @event.listens_for(eng, "connect")

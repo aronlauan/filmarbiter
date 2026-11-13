@@ -171,3 +171,19 @@ def test_map_seats_limit(map_client: TestClient) -> None:
 
 def test_map_not_built(client: TestClient) -> None:
     assert client.get("/api/map").status_code == 503
+
+
+def test_precomputed_sections_match(
+    catalog: Engine, index: MovieIndex, movie_map: MovieMap, tmp_path: Path
+) -> None:
+    """build_map saves the sections so the API can skip scikit-learn; the result must
+    be the same map as computing them at load."""
+    out = tmp_path / "map_sections.npz"
+    build(tmp_path / "vectors.npz", out, eng=catalog, candidates=4)
+    with np.load(out) as npz:
+        assert len(npz["section_ids"]) == len(npz["section_labels"]) > 0
+    pre = MovieMap.load(catalog, out, index, candidates=4)
+    assert pre.nodes == movie_map.nodes and pre.sections == movie_map.sections
+    # Saved sections for a different candidate set are ignored, not misapplied.
+    stale = MovieMap.load(catalog, out, index, candidates=3)
+    assert len(stale.nodes) <= 3

@@ -1,7 +1,7 @@
 SHELL := /bin/zsh
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report vectors map
+.PHONY: install api web test lint migrate ingest ingest-imdb ingest-tmdb report vectors map data-bundle
 
 install:
 	cd backend && uv sync
@@ -43,3 +43,11 @@ vectors:
 # 2D layout of the vectors for the Blender's movie theater (~1-2 min). Run after vectors.
 map:
 	cd backend && uv run python -m ingest.build_map
+
+# Deploy: the vector + map files with checksums, to upload as GitHub release assets
+# (see README "Deploy"). Rebuild vectors and map first if the catalog changed.
+DATA_FILES := vectors.npz vectors.json map.npz map.json
+data-bundle:
+	mkdir -p data/release
+	cd data && cp $(DATA_FILES) release/
+	cd data/release && shasum -a 256 $(DATA_FILES) > SHA256SUMS && cat SHA256SUMS

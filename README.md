@@ -5,11 +5,11 @@ App for helping people just pick a movie already.
 - **Use my Letterboxd:** enter a Letterboxd username and get picks based on how you've rated what you've already seen.
 
 ## Stack
-- `backend/`: Python 3.12+ (FastAPI, SQLAlchemy + Alembic on SQLite, numpy/scikit-learn, sentence-transformers), managed with [uv](https://docs.astral.sh/uv/)
+- `backend/`: Python 3.12+ (FastAPI, SQLAlchemy + Alembic on SQLite locally and Postgres in production, numpy/scikit-learn, sentence-transformers), managed with [uv](https://docs.astral.sh/uv/)
 - `frontend/`: React + Vite + TypeScript + Tailwind, TanStack Query, React Router
 - Data: IMDb non-commercial datasets (catalog), TMDB API (plot summaries, keywords, posters), Letterboxd public profiles via [`letterboxdpy`](https://github.com/nmcassa/letterboxdpy)
 
-SQLite is for the MVP; the plan is Postgres at launch. Keep database code portable: SQLite-specific SQL (FTS5 title search) lives only in `backend/app/search.py`.
+Development uses SQLite; production uses Postgres ([Neon](https://neon.com)). Keep database code portable: the only dialect-specific SQL is title search in `backend/app/search.py` (FTS5 on SQLite, a tsvector table on Postgres). `TEST_POSTGRES_URL=postgresql://... make test` runs the suite against a scratch Postgres database (it wipes its `public` schema).
 
 ## Setup
 Requires uv, Node LTS and a free [TMDB API key](https://www.themoviedb.org/settings/api).
@@ -60,6 +60,38 @@ make lint   # ruff + oxlint
 
 Interactive docs at http://localhost:8000/docs while `make api` is running.
 
+## Deploy
+Render hosts two services from [`render.yaml`](render.yaml): the API (`filmarbiter-api`, Python web service) and the React app (`filmarbiter`, static site). The database is Neon's free plan.
+
+**What runs where.** The server installs only the main dependencies (`uv sync --no-default-groups`, ~200 MB). PyTorch, sentence-transformers and polars are in the `ingest` group because only `make ingest` needs them. Ingest always runs on your machine. Production gets its data two ways:
+- **Database:** copied from your local SQLite with `scripts/copy_to_postgres.py`.
+- **Vector and map files:** downloaded at build time from a GitHub release (`DATA_RELEASE_URL`), with SHA-256 checks.
+
+The API uses ~340 MB of memory, which fits Render's 512 MB instances.
+
+### First deploy
+1. **Neon:** create a project in the region next to your Render region (AWS us-east-2 ↔ Render `ohio`, the default in `render.yaml`), then copy its connection string.
+2. **Database:** `cd backend && uv run python -m scripts.copy_to_postgres "<neon url>" --catalog-only`. This migrates the database, copies the catalog (~10 s) and builds the title search index. Leave out `--catalog-only` to also copy your local Letterboxd imports.
+3. **Data files:** `make data-bundle`, then create a GitHub release tagged e.g. `data-2026-11-12` and attach the five files in `data/release/`. Set that tag in `DATA_RELEASE_URL` in `render.yaml`.
+4. **Render:** commit and push, then go to Dashboard → New → Blueprint → this repo. When prompted, paste the Neon URL as `DATABASE_URL`.
+5. **Check the URLs:** if Render gave either service a different `onrender.com` subdomain, fix `VITE_API_URL` (static site) and `CORS_ORIGINS` (API) in `render.yaml` and push.
+
+### Updating
+- **Code:** push to the deploy branch; Render rebuilds both services and runs migrations in the API build.
+- **Catalog refresh:**
+  1. Re-ingest locally, then run `make vectors map`.
+  2. `copy_to_postgres "<neon url>" --catalog-only --replace`.
+  3. `make data-bundle` and upload the files to a new release.
+  4. Bump `DATA_RELEASE_URL` and push.
+
+  Vectors, map and database must come from the same catalog.
+
+### Free-tier limits to watch
+- **Render free API:** it sleeps after 15 minutes idle, so the first visitor after a quiet spell waits about a minute. Switch `plan: free` to `starter` ($7/month) to keep it awake.
+- **Neon transfer:** each API start reads ~13 MB from Neon, and the free plan suspends the database after 5 GB/month of network transfer. That's roughly 12 cold starts a day; check the Neon console's usage page. An always-on API (Starter) loads only once per deploy.
+- **Neon storage:** the catalog is well under 100 MB of the 1 GB. Each Letterboxd import stores roughly 100–200 bytes per logged film.
+- **Single process:** see [Letterboxd integration](#letterboxd-integration). Imports run in the API process, so a spin-down mid-import marks the import "interrupted". The page keeps polling while it's open, which keeps the instance awake.
+
 ## Letterboxd integration
 Letterboxd has no open API, so `backend/app/letterboxd/client.py` wraps `letterboxdpy`, which reads public profile pages. Everything Letterboxd-specific is behind that file, so it can be swapped for a CSV-export upload or the official API.
 
@@ -98,7 +130,7 @@ Each result shows a **match percentage**: its final score rescaled as `√((scor
 
 Each result's "why" line lists keywords, genres and people it shares with the picks.
 
-**Letterboxd:** taste vector = Σ (rating − the user's average rating) × movie vector, with a small bonus for ♥ likes; below-average ratings count at half strength. Logged films are excluded, then a stronger quality factor (0.4–1.0; a big profile averages into a blander vector) and MMR apply. Each result cites the user's liked films most similar to it ("because you rated…"), avoiding citing the same favourites on every pick; its "why" line draws on their 25 most related liked films.
+**Letterboxd:** taste vector = Σ (rating − the user's average rating) × movie vector, with a small bonus for ♥ likes; below-average ratings count at half strength. Logged films are excluded, then a stronger quality factor (0.4–1.0; a big profile averages into a blander vector) and MMR apply. Each result cites the user's liked films most similar to it ("because you rated…"), avoiding citing the same favorites on every pick; its "why" line draws on their 25 most related liked films.
 
 ### Tuning
 ```sh

@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import Blender from './pages/Blender'
 import Home from './pages/Home'
@@ -6,15 +7,20 @@ import LetterboxdSuggestions from './pages/LetterboxdSuggestions'
 import NotFound from './pages/NotFound'
 
 export default function App() {
+  const { pathname } = useLocation()
+  // BrowserRouter keeps the window's scroll across navigations; every page should open at the top.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
   // The Blender's theater fills the screen under the header; other pages stay a readable column.
-  const fullBleed = useLocation().pathname === '/blend'
+  const fullBleed = pathname === '/blend'
   const width = fullBleed ? 'max-w-[96rem]' : 'max-w-5xl'
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       {/* Fixed height: the Blender sizes its stage to the screen minus this header. */}
       <header className="flex h-14 shrink-0 items-center border-b border-stone-200 px-4 dark:border-stone-800">
         <nav className={`mx-auto flex w-full ${width} items-center gap-6`}>
-          <Link to="/" className="text-lg font-semibold tracking-tight">
+          <Link to="/" className="font-display text-xl font-bold tracking-wide uppercase">
             filmarbiter
           </Link>
           <Link to="/blend" className="text-sm text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100">

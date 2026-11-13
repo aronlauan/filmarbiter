@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -5,9 +6,10 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, insert, update
+from sqlalchemy import Engine, insert, text, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config import Settings
 from app.db import get_session, make_engine
 from app.main import app
 from app.models import Movie, MovieKeyword
@@ -20,13 +22,26 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+# Set to a scratch Postgres database to run the suite against Postgres instead of
+# SQLite. Every test wipes its public schema, so never point it at real data.
+TEST_POSTGRES_URL = os.environ.get("TEST_POSTGRES_URL")
+
+
 @pytest.fixture
 def engine(tmp_path: Path) -> Iterator[Engine]:
-    """A fresh SQLite database with all migrations applied."""
-    url = f"sqlite:///{tmp_path / 'test.db'}"
+    """A fresh database (SQLite, or TEST_POSTGRES_URL) with all migrations applied."""
+    if TEST_POSTGRES_URL:
+        url = Settings.model_validate({"database_url": TEST_POSTGRES_URL}).database_url
+        wipe = make_engine(url)
+        with wipe.begin() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE"))
+            conn.execute(text("CREATE SCHEMA public"))
+        wipe.dispose()
+    else:
+        url = f"sqlite:///{tmp_path / 'test.db'}"
     cfg = Config(BACKEND_DIR / "alembic.ini")
     cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-    cfg.set_main_option("sqlalchemy.url", url)
+    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     cfg.attributes["configure_logger"] = False
     command.upgrade(cfg, "head")
     eng = make_engine(url)

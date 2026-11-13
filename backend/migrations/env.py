@@ -20,9 +20,14 @@ target_metadata = Base.metadata
 
 
 def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    """Keep autogenerate away from the FTS5 search index (movie_fts and its shadow
-    tables). It's created by hand in a migration and isn't in the SQLAlchemy models."""
-    return not (type_ == "table" and name is not None and name.startswith("movie_fts"))
+    """Keep autogenerate away from the title search indexes (SQLite's movie_fts and its
+    shadow tables, Postgres's movie_search). They're created by hand in migrations and
+    aren't in the SQLAlchemy models; see app/search.py."""
+    return not (
+        type_ in ("table", "index")
+        and name is not None
+        and name.startswith(("movie_fts", "movie_search", "ix_movie_search"))
+    )
 
 
 def run_migrations_offline() -> None:
