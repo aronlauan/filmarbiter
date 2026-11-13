@@ -4,17 +4,18 @@
       <stop offset="0" stop-color="#fbbf24"/>
       <stop offset="1" stop-color="#ea580c"/>
     </linearGradient>
-    <pattern id="stripes" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="skewX(-40)">
-      <rect width="14" height="14" fill="#fafaf9"/>
-      <rect width="7" height="14" fill="#1c1917"/>
-    </pattern>
+    <!-- A film reel: dark disc with holes round a hub -->
+    <g id="reel">
+      <circle r="10.5" fill="#1c1917"/>
+      <circle r="2" fill="#fafaf9"/>
+      <circle cy="-6" r="2.4" fill="#fafaf9"/>
+      <circle cx="5.2" cy="3" r="2.4" fill="#fafaf9"/>
+      <circle cx="-5.2" cy="3" r="2.4" fill="#fafaf9"/>
+    </g>
   </defs>
-  <!-- Arm, swung open about the hinge -->
-  <g transform="rotate(-15 5 25)">
-    <rect x="4" y="15" width="56" height="9" rx="2" fill="url(#stripes)" stroke="#1c1917" stroke-width="1.5"/>
-  </g>
-  <!-- Striped band and the slate -->
-  <rect x="4" y="26" width="56" height="9" rx="2" fill="url(#stripes)" stroke="#1c1917" stroke-width="1.5"/>
-  <rect x="4" y="37" width="56" height="23" rx="4" fill="url(#body)" stroke="#1c1917" stroke-width="1.5"/>
-  <circle cx="7.5" cy="25" r="2.5" fill="#1c1917"/>
+  <use href="#reel" x="14" y="17"/>
+  <use href="#reel" x="35" y="17"/>
+  <!-- Lens hood, then the body over its back edge -->
+  <path d="M41 39 L60 30 V58 L41 49 Z" fill="#1c1917" stroke="#1c1917" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="3" y="29" width="42" height="28" rx="5" fill="url(#body)" stroke="#1c1917" stroke-width="1.5"/>
 </svg>
