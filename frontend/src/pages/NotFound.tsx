@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LETTERBOXD_ENABLED } from '../features'
 
 export default function NotFound() {
   return (
@@ -8,11 +9,16 @@ export default function NotFound() {
         There's nothing here. Try the{' '}
         <Link to="/blend" className="underline">
           Movie Blender
-        </Link>{' '}
-        or{' '}
-        <Link to="/letterboxd" className="underline">
-          your Letterboxd picks
         </Link>
+        {LETTERBOXD_ENABLED && (
+          <>
+            {' '}
+            or{' '}
+            <Link to="/letterboxd" className="underline">
+              your Letterboxd picks
+            </Link>
+          </>
+        )}
         .
       </p>
     </section>

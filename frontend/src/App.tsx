@@ -1,7 +1,9 @@
 import { useLayoutEffect } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
+import { LETTERBOXD_ENABLED } from './features'
 import Blender from './pages/Blender'
 import Home from './pages/Home'
+import LetterboxdComingSoon from './pages/LetterboxdComingSoon'
 import LetterboxdConnect from './pages/LetterboxdConnect'
 import LetterboxdSuggestions from './pages/LetterboxdSuggestions'
 import NotFound from './pages/NotFound'
@@ -36,8 +38,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/blend" element={<Blender />} />
-          <Route path="/letterboxd" element={<LetterboxdConnect />} />
-          <Route path="/letterboxd/:username" element={<LetterboxdSuggestions />} />
+          <Route path="/letterboxd" element={LETTERBOXD_ENABLED ? <LetterboxdConnect /> : <LetterboxdComingSoon />} />
+          <Route
+            path="/letterboxd/:username"
+            element={LETTERBOXD_ENABLED ? <LetterboxdSuggestions /> : <LetterboxdComingSoon />}
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

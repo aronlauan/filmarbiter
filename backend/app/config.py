@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     tmdb_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Off in production (render.yaml): Letterboxd blocks requests from Render's servers,
+    # so the /api/letterboxd routes aren't registered and the app shows "Coming soon".
+    letterboxd_enabled: bool = True
+
     @field_validator("database_url")
     @classmethod
     def _use_psycopg(cls, url: str) -> str:

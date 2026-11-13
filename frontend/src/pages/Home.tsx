@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { posterSrc, rollMovies, type RolledMovie } from '../api'
 import { BlendIcon } from '../components/BlendButton'
 import MovieCloud, { type CloudPhase } from '../components/MovieCloud'
+import { LETTERBOXD_ENABLED } from '../features'
 import { useMediaQuery } from '../hooks'
 
 /** Every throw deals movies from each of these genres. */
@@ -247,7 +248,7 @@ export default function Home() {
             to="/letterboxd"
             icon={<StarIcon className="h-8 w-8 sm:h-9 sm:w-9" />}
             title="Your Letterboxd"
-            body="Get picks based on how you've rated films."
+            body={LETTERBOXD_ENABLED ? "Get picks based on how you've rated films." : 'Coming soon…'}
             className="bg-linear-to-br from-emerald-500 to-teal-700 shadow-emerald-700/25 focus-visible:outline-emerald-500"
           />
         </div>

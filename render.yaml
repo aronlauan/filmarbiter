@@ -24,6 +24,8 @@ services:
         value: https://github.com/aronlauan/filmarbiter/releases/download/data-2026-11-12
       - key: CORS_ORIGINS # the static site's URL (JSON list)
         value: '["https://filmarbiter.onrender.com"]'
+      - key: LETTERBOXD_ENABLED # off until there's a fix for Letterboxd blocking Render
+        value: "false"
       - key: PYTHON_VERSION
         value: 3.14.3
       # Use Render's Python and copy packages into backend/.venv, so nothing the app
@@ -45,6 +47,8 @@ services:
     envVars:
       - key: VITE_API_URL # the API service's URL (check it in the dashboard)
         value: https://filmarbiter-api.onrender.com
+      - key: VITE_LETTERBOXD_ENABLED # "Coming soon" page; keep in step with the API's
+        value: "false"
       - key: NODE_VERSION
         value: "26" # matches local development; Vite 8 needs 20.19+
     routes:

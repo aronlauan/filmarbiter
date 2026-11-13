@@ -95,6 +95,8 @@ The API uses ~340 MB of memory, which fits Render's 512 MB instances.
 ## Letterboxd integration
 Letterboxd has no open API, so `backend/app/letterboxd/client.py` wraps `letterboxdpy`, which reads public profile pages. Everything Letterboxd-specific is behind that file, so it can be swapped for a CSV-export upload or the official API.
 
+**Off in production for now.** Letterboxd's Cloudflare protection blocks requests from Render's servers: verify and search time out after 15 s, while the same code works from a home connection. `render.yaml` sets `LETTERBOXD_ENABLED=false` (the API doesn't register `/api/letterboxd`) and `VITE_LETTERBOXD_ENABLED=false` (the site shows "Coming soon…"). Both default to on, so local development keeps the full feature. Delete those two entries to turn it back on.
+
 - **Only public profiles.** No login; private profiles get a clear "private" message.
 - **Flow:** verify the username (one profile request, capped at 15 s, cached 1 h), then a background import pages through the user's films (~0.25 s between pages), matches them to the catalog, and stores them. Imports under 24 h old are reused unless the user refreshes.
 - **Matching:** normalised title + year, then subtitle ("Star Wars: The Last Jedi" ↔ "Star Wars: Episode VIII - The Last Jedi"), then a few capped lookups of the film's IMDb link on Letterboxd (cached). On a 3,485-film profile, 2,483 matched in ~35 s; nearly all the rest are outside the catalog.

@@ -24,7 +24,8 @@ app = FastAPI(title="filmarbiter", lifespan=lifespan)
 app.include_router(movies.router)
 app.include_router(blend.router)
 app.include_router(movie_map.router)
-app.include_router(letterboxd.router)
+if settings.letterboxd_enabled:
+    app.include_router(letterboxd.router)
 
 # The movie map is a few hundred KB of JSON; compresses ~4x.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
